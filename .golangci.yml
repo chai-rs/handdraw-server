@@ -1,0 +1,126 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - revive
+    - errcheck
+    - wsl_v5
+    - nlreturn
+  settings:
+    revive:
+      severity: warning
+      enable-all-rules: false
+      rules:
+        - name: var-naming
+          disabled: false
+          arguments:
+            - [
+                "URL",
+                "ID",
+                "HTTP",
+                "HTTPS",
+                "JSON",
+                "XML",
+                "API",
+                "IP",
+                "DB",
+                "SQL",
+                "TLS",
+                "TCP",
+                "UDP",
+                "DTO",
+                "UUID",
+                "EWMA",
+                "OTel",
+                "WS",
+              ]
+            - []
+        - name: error-naming
+          disabled: false
+        - name: error-strings
+          disabled: false
+        - name: if-return
+          disabled: false
+        - name: superfluous-else
+          disabled: false
+        - name: range
+          disabled: false
+        - name: receiver-naming
+          disabled: false
+        - name: time-naming
+          disabled: false
+        - name: dot-imports
+          disabled: false
+        - name: var-declaration
+          disabled: false
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Print
+        - fmt.Printf
+        - fmt.Println
+    wsl_v5:
+      # Opt-in rule set. v5 is a rewrite of wsl with a much smaller default;
+      # we enable the full rule set to preserve v1's strict blank-line policy
+      # (declarations not cuddled, blocks separated, err cuddling enforced).
+      # Drop individual rules here if any becomes too noisy for the codebase.
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+      enable:
+        - assign
+        - branch
+        - decl
+        - defer
+        - err
+        - expr
+        - for
+        - go
+        - if
+        - inc-dec
+        - range
+        - return
+        - select
+        - switch
+    nlreturn:
+      block-size: 2
+  exclusions:
+    generated: lax
+    paths:
+      - mocks
+      - ".*_gen\\.go$"
+      - ".*\\.pb\\.go$"
+    rules:
+      # Tests are exempt from whitespace and return-cuddling rules: test files
+      # often have setup/assert pairs that read better cuddled.
+      - path: _test\.go
+        linters:
+          - wsl_v5
+          - nlreturn
+
+issues:
+  # No `new-from-rev` here, unlike expresso-common. That setting grandfathers
+  # everything older than a base ref, which needs history to diff against —
+  # this repo has none yet, and every line in it is new anyway. Add it once
+  # there is a `main` worth treating as the baseline.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra:
+        group-params: true

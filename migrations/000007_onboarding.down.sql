@@ -1,0 +1,10 @@
+BEGIN;
+DROP FUNCTION handdraw.bootstrap_workspace(text,text,text),handdraw.expire_request_key(text,uuid);
+REVOKE INSERT(id,kind,name,owner_user_id) ON handdraw.workspaces FROM handdraw_access_owner;
+REVOKE INSERT(workspace_id,user_id,role) ON handdraw.workspace_members FROM handdraw_access_owner;
+REVOKE SELECT,DELETE ON handdraw.idempotency_records FROM handdraw_access_owner;
+DROP POLICY access_workspace_bootstrap ON handdraw.workspaces;
+DROP POLICY access_owner_bootstrap ON handdraw.workspace_members;
+DROP POLICY access_idempotency_expired ON handdraw.idempotency_records;
+DROP POLICY access_idempotency_expired_delete ON handdraw.idempotency_records;
+COMMIT;

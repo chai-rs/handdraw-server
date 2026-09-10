@@ -1,0 +1,10 @@
+BEGIN;
+DROP FUNCTION handdraw.run_board_cleanup(),handdraw.lock_content_workspace(text);
+DROP TABLE handdraw.board_deletion_jobs;
+DROP POLICY access_cleanup_documents ON handdraw.board_documents;
+DROP POLICY access_cleanup_boards ON handdraw.boards;
+REVOKE DELETE ON handdraw.board_documents,handdraw.boards FROM handdraw_access_owner;
+REVOKE EXECUTE ON FUNCTION handdraw.schema_compatible(bigint) FROM handdraw_cleanup_worker;
+REVOKE USAGE ON SCHEMA handdraw FROM handdraw_cleanup_worker;
+DROP ROLE handdraw_cleanup_worker;
+COMMIT;

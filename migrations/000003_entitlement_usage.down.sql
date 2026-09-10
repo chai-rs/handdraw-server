@@ -1,0 +1,17 @@
+BEGIN;
+DROP TRIGGER workspace_subscription_plan ON handdraw.workspaces;
+DROP TRIGGER workspace_usage_created ON handdraw.workspaces;
+DROP TABLE handdraw.subscriptions;
+DROP TABLE handdraw.workspace_usage;
+DROP FUNCTION handdraw.adjust_usage(text,bigint,bigint,bigint);
+DROP FUNCTION handdraw.touch_subscription_access();
+DROP FUNCTION handdraw.check_subscription_plan();
+DROP FUNCTION handdraw.initialize_usage();
+DROP FUNCTION handdraw.can_write_workspace(text);
+DROP FUNCTION handdraw.can_read_workspace(text);
+DROP FUNCTION handdraw.entitlement_editable(text);
+DROP FUNCTION handdraw.is_workspace_owner(text);
+REVOKE ALL ON SCHEMA handdraw FROM handdraw_billing_worker, handdraw_quota_worker;
+DROP ROLE handdraw_billing_worker;
+DROP ROLE handdraw_quota_worker;
+COMMIT;

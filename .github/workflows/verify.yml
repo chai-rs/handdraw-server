@@ -1,0 +1,59 @@
+name: Foundation contracts and database
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.0'
+          cache: true
+      - name: Install pinned migration and lint tools
+        run: |
+          go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.0
+      - name: Prevent changes to migrations already on the base branch
+        if: github.event_name == 'pull_request'
+        env:
+          MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: python3 script/check-migration-history.py "$MIGRATION_BASE_REF"
+      - run: make check
+      - run: make test-database
+      - run: golangci-lint run --build-tags=integration,migrationtest ./...
+  editor-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: handdraw-server
+      - uses: actions/checkout@v4
+        with:
+          repository: chai-rs/handdraw-client
+          ref: ${{ vars.HANDDRAW_CLIENT_REF || 'main' }}
+          token: ${{ secrets.HANDDRAW_CLIENT_READ_TOKEN || github.token }}
+          path: handdraw-client
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.0'
+          cache-dependency-path: handdraw-server/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: handdraw-client/package-lock.json
+      - run: npm ci
+        working-directory: handdraw-client
+      - run: npm run typecheck
+        working-directory: handdraw-client
+      - run: make test-content-compat
+        working-directory: handdraw-server

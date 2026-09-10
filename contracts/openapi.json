@@ -1,0 +1,3917 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Handdraw API",
+    "version": "1.0.0",
+    "description": "Handdraw API contract. Identity, workspace onboarding and project/board routes are wired behind explicit configuration. Board deletion additionally requires the cleanup worker. Team membership, invitations and board Viewer grants require the membership feature flag. Invitation email delivery remains pending integration. Bearer identity is verified before profile resolution. Unknown fields/trailing JSON are rejected. Future domain endpoints are added with their implementation contracts."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8081",
+      "description": "Local development; deployment must use HTTPS."
+    }
+  ],
+  "security": [
+    {
+      "supabaseBearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Identity",
+      "description": "Current authenticated profile."
+    },
+    {
+      "name": "Workspaces",
+      "description": "Workspace onboarding and metadata."
+    },
+    {
+      "name": "Projects",
+      "description": "Board organization within a workspace."
+    },
+    {
+      "name": "Boards",
+      "description": "Board metadata and committed document content."
+    },
+    {
+      "name": "Members",
+      "description": "Team membership and role changes."
+    },
+    {
+      "name": "Invitations",
+      "description": "Recipient-bound workspace and board invitations."
+    },
+    {
+      "name": "Guests",
+      "description": "Board-scoped Viewer access."
+    }
+  ],
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "Get me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Identity"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      }
+    },
+    "/v1/me/shared-boards": {
+      "get": {
+        "operationId": "listSharedBoards",
+        "summary": "List shared boards",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Cursor ordering: resource ID ascending."
+      }
+    },
+    "/v1/workspaces": {
+      "get": {
+        "operationId": "listWorkspaces",
+        "summary": "List workspaces",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Workspaces"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "post": {
+        "operationId": "createWorkspace",
+        "summary": "Create workspace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "202": {
+            "description": "Operation already processing; result contains a safe operation reference. No replay of cached secrets.",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOperationResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkspace"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled. Atomically create workspace + Owner; subscription is separate and starts unavailable."
+      }
+    },
+    "/v1/workspaces/{workspace_id}": {
+      "get": {
+        "operationId": "getWorkspace",
+        "summary": "Get workspace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Workspaces"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "patch": {
+        "operationId": "renameWorkspace",
+        "summary": "Rename workspace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Rename"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      }
+    },
+    "/v1/workspaces/{workspace_id}/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "List projects",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Projects"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "post": {
+        "operationId": "createProject",
+        "summary": "Create project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "202": {
+            "description": "Operation already processing; result contains a safe operation reference. No replay of cached secrets.",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOperationResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProject"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "patch": {
+        "operationId": "renameProject",
+        "summary": "Rename project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/project_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Rename"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "delete": {
+        "operationId": "deleteEmptyProject",
+        "summary": "Delete empty project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/project_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Projects"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled. Reject nonempty projects; repeat delete with parent access has no additional effect."
+      }
+    },
+    "/v1/workspaces/{workspace_id}/boards": {
+      "get": {
+        "operationId": "listBoards",
+        "summary": "List boards",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^(ungrouped|prj_[0-9A-Za-z]{27})$"
+            },
+            "description": "Omitted: all groups. ungrouped: no project. Otherwise canonical prj_ ID; part of cursor scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "post": {
+        "operationId": "createBoard",
+        "summary": "Create board",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "202": {
+            "description": "Operation already processing; result contains a safe operation reference. No replay of cached secrets.",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOperationResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoard"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled. Atomically create board and server-built schema-1 document. Import initialization is unavailable until T08."
+      }
+    },
+    "/v1/boards/{board_id}": {
+      "get": {
+        "operationId": "getBoard",
+        "summary": "Get board",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "patch": {
+        "operationId": "updateBoard",
+        "summary": "Update board",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchBoard"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled."
+      },
+      "delete": {
+        "operationId": "deleteBoard",
+        "summary": "Delete board",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Enabled only with the in-process restricted cleanup worker. Returns the same durable job on authorized repeated deletion."
+      }
+    },
+    "/v1/boards/{board_id}/document": {
+      "get": {
+        "operationId": "getBoardDocument",
+        "summary": "Get board document",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "X-Document-Schema-Version": {
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    1
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Boards"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available when the corresponding runtime feature is enabled. Read committed schema-1 Yjs update bytes; no offline or mutable REST document writes."
+      }
+    },
+    "/v1/workspaces/{workspace_id}/members": {
+      "get": {
+        "operationId": "listMembers",
+        "summary": "List members",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Members"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. List the workspace roster without exposing Auth email addresses. Cursor ordering: resource ID ascending."
+      }
+    },
+    "/v1/workspaces/{workspace_id}/members/{user_id}": {
+      "patch": {
+        "operationId": "changeMemberRole",
+        "summary": "Change member role",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/user_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[1-9][0-9]*\"$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeMember"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Members"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner changes Editor/Viewer role using the current member revision and atomic seat capacity checks."
+      },
+      "delete": {
+        "operationId": "removeMember",
+        "summary": "Remove member",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/user_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Members"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Remove a non-Owner member; an authorized repeat has no further effect."
+      }
+    },
+    "/v1/workspaces/{workspace_id}/invitations": {
+      "post": {
+        "operationId": "inviteMember",
+        "summary": "Invite member",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Invitation persisted; email delivery remains pending integration. Concurrent processing may return PendingOperationResponse.",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InvitationSubmissionResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PendingOperationResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Invite"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invitations"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner reserves Team Editor capacity and records a seven-day recipient-bound invitation; email delivery is pending integration."
+      },
+      "get": {
+        "operationId": "listInvitations",
+        "summary": "List invitations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Invitations"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner lists invitation history, including calculated expiry. Cursor ordering: created_at descending, then invitation ID descending."
+      }
+    },
+    "/v1/boards/{board_id}/invitations": {
+      "post": {
+        "operationId": "inviteBoardGuest",
+        "summary": "Invite board guest",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Invitation persisted; email delivery remains pending integration. Concurrent processing may return PendingOperationResponse.",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InvitationSubmissionResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PendingOperationResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteGuest"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invitations"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner records a Viewer-only invitation for one Cloud/Team board; email delivery is pending integration."
+      }
+    },
+    "/v1/invitations/accept": {
+      "post": {
+        "operationId": "acceptInvitation",
+        "summary": "Accept invitation",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedAccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "410": {
+            "$ref": "#/components/responses/410"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitation"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invitations"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Consume one token after matching the current confirmed Auth email and rechecking entitlement/capacity. Repeat use returns 410; inspect current access after a lost response."
+      }
+    },
+    "/v1/invitations/{invitation_id}": {
+      "delete": {
+        "operationId": "revokeInvitation",
+        "summary": "Revoke invitation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/invitation_id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Invitations"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner revokes a pending invitation and releases reserved capacity."
+      }
+    },
+    "/v1/boards/{board_id}/guests": {
+      "get": {
+        "operationId": "listBoardGuests",
+        "summary": "List board guests",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Guests"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner lists explicit Viewer grants, independently of workspace membership."
+      }
+    },
+    "/v1/boards/{board_id}/guests/{user_id}": {
+      "delete": {
+        "operationId": "removeBoardGuest",
+        "summary": "Remove board guest",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/user_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestRemovalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-max-request-bytes": 65536,
+        "tags": [
+          "Guests"
+        ],
+        "x-implementation-status": "available-when-enabled",
+        "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner removes the board grant and returns any remaining workspace membership."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "supabaseBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Supabase JWT"
+      }
+    },
+    "schemas": {
+      "UserID": {
+        "type": "string",
+        "pattern": "^usr_[0-9A-Za-z]{27}$",
+        "format": "handdraw-resource-id",
+        "description": "Canonical nonzero 160-bit KSUID; case sensitive. Regex is supplemented by the registered format validator."
+      },
+      "WorkspaceID": {
+        "type": "string",
+        "pattern": "^ws_[0-9A-Za-z]{27}$",
+        "format": "handdraw-resource-id",
+        "description": "Canonical nonzero 160-bit KSUID; case sensitive. Regex is supplemented by the registered format validator."
+      },
+      "ProjectID": {
+        "type": "string",
+        "pattern": "^prj_[0-9A-Za-z]{27}$",
+        "format": "handdraw-resource-id",
+        "description": "Canonical nonzero 160-bit KSUID; case sensitive. Regex is supplemented by the registered format validator."
+      },
+      "BoardID": {
+        "type": "string",
+        "pattern": "^brd_[0-9A-Za-z]{27}$",
+        "format": "handdraw-resource-id",
+        "description": "Canonical nonzero 160-bit KSUID; case sensitive. Regex is supplemented by the registered format validator."
+      },
+      "JobID": {
+        "type": "string",
+        "pattern": "^job_[0-9A-Za-z]{27}$",
+        "format": "handdraw-resource-id",
+        "description": "Canonical nonzero 160-bit KSUID; case sensitive. Regex is supplemented by the registered format validator."
+      },
+      "InvitationID": {
+        "type": "string",
+        "pattern": "^inv_[0-9A-Za-z]{27}$",
+        "format": "handdraw-resource-id",
+        "description": "Canonical nonzero 160-bit KSUID; case sensitive. Regex is supplemented by the registered format validator."
+      },
+      "Revision": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]*$",
+        "format": "handdraw-revision",
+        "description": "Positive signed int64 serialized as decimal text to retain JavaScript precision."
+      },
+      "Name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "editor",
+          "viewer"
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "can_read": {
+            "type": "boolean"
+          },
+          "can_edit_content": {
+            "type": "boolean"
+          },
+          "can_comment": {
+            "type": "boolean"
+          },
+          "can_export": {
+            "type": "boolean"
+          },
+          "can_manage_guests": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "can_read",
+          "can_edit_content",
+          "can_comment",
+          "can_export",
+          "can_manage_guests"
+        ]
+      },
+      "Entitlement": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "unavailable",
+              "editable",
+              "read_only",
+              "purging"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "grace_ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "access_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "retention_ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "mode",
+          "reason",
+          "grace_ends_at",
+          "access_expires_at",
+          "retention_ends_at"
+        ]
+      },
+      "Me": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/UserID"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "email"
+        ]
+      },
+      "Workspace": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/WorkspaceID"
+          },
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "team"
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/Revision"
+          },
+          "access_revision": {
+            "$ref": "#/components/schemas/Revision"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "purging",
+              "deleted"
+            ]
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "entitlement": {
+            "$ref": "#/components/schemas/Entitlement"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "role",
+          "revision",
+          "access_revision",
+          "lifecycle",
+          "capabilities",
+          "entitlement",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "Project": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ProjectID"
+          },
+          "workspace_id": {
+            "$ref": "#/components/schemas/WorkspaceID"
+          },
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/Revision"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "revision",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "Board": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/BoardID"
+          },
+          "workspace_id": {
+            "$ref": "#/components/schemas/WorkspaceID"
+          },
+          "project_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectID"
+              }
+            ],
+            "nullable": true
+          },
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "initializing",
+              "active",
+              "deleting"
+            ]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/Revision"
+          },
+          "document_schema_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "project_id",
+          "name",
+          "status",
+          "revision",
+          "document_schema_version",
+          "capabilities",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DeletionJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/JobID"
+          },
+          "board_id": {
+            "$ref": "#/components/schemas/BoardID"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "canceled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "board_id",
+          "status"
+        ]
+      },
+      "CreateWorkspace": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "team"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ]
+      },
+      "CreateProject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Rename": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateBoard": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "project_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectID"
+              }
+            ],
+            "nullable": true
+          },
+          "initialization": {
+            "type": "string",
+            "enum": [
+              "empty",
+              "get_started"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "project_id",
+          "initialization"
+        ]
+      },
+      "PatchBoard": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "project_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectID"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "required": [],
+        "minProperties": 1
+      },
+      "PendingOperation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "processing"
+            ]
+          }
+        },
+        "required": [
+          "operation",
+          "status"
+        ]
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pagination": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "next_cursor": {
+                "type": "string",
+                "maxLength": 4096,
+                "nullable": true
+              }
+            },
+            "required": [
+              "next_cursor"
+            ]
+          }
+        },
+        "required": [
+          "request_id"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "error"
+        ]
+      },
+      "MeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Me"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "WorkspaceResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Workspace"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "ProjectResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Project"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "BoardResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Board"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "DeletionJobResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeletionJob"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "PendingOperationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/PendingOperation"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "WorkspaceListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pagination": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "next_cursor": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "next_cursor"
+                ]
+              }
+            },
+            "required": [
+              "request_id",
+              "pagination"
+            ]
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "ProjectListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pagination": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "next_cursor": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "next_cursor"
+                ]
+              }
+            },
+            "required": [
+              "request_id",
+              "pagination"
+            ]
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "BoardListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pagination": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "next_cursor": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "next_cursor"
+                ]
+              }
+            },
+            "required": [
+              "request_id",
+              "pagination"
+            ]
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Board"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "Member": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "$ref": "#/components/schemas/UserID"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/Revision"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "role",
+          "revision"
+        ]
+      },
+      "Invite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "editor",
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ]
+      },
+      "InviteGuest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ]
+      },
+      "ChangeMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "editor",
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "Invitation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/InvitationID"
+          },
+          "workspace_id": {
+            "$ref": "#/components/schemas/WorkspaceID"
+          },
+          "board_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoardID"
+              }
+            ],
+            "nullable": true
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "board"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "editor",
+              "viewer"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "revoked",
+              "expired"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "board_id",
+          "scope",
+          "email",
+          "role",
+          "status",
+          "expires_at",
+          "created_at"
+        ]
+      },
+      "InvitationSubmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/Invitation"
+          },
+          "delivery_status": {
+            "type": "string",
+            "enum": [
+              "pending_integration"
+            ],
+            "description": "Invitation persisted; email provider integration is not enabled. No email has been sent."
+          }
+        },
+        "required": [
+          "invitation",
+          "delivery_status"
+        ]
+      },
+      "AcceptInvitation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "writeOnly": true,
+            "description": "Single-use 256-bit secret. Send only in this POST body; never log it or place it in a URL."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "AcceptedAccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace_id": {
+            "$ref": "#/components/schemas/WorkspaceID"
+          },
+          "board_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoardID"
+              }
+            ],
+            "nullable": true
+          },
+          "user_id": {
+            "$ref": "#/components/schemas/UserID"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "board_grant"
+            ]
+          }
+        },
+        "required": [
+          "workspace_id",
+          "board_id",
+          "user_id",
+          "role",
+          "source"
+        ]
+      },
+      "Guest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "$ref": "#/components/schemas/UserID"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "role",
+          "created_at",
+          "expires_at"
+        ]
+      },
+      "GuestRemoval": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "removed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "effective_access": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "$ref": "#/components/schemas/Role"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "workspace"
+                ]
+              }
+            },
+            "required": [
+              "role",
+              "source"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "removed",
+          "effective_access"
+        ]
+      },
+      "MemberResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Member"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "InvitationSubmissionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/InvitationSubmission"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "AcceptedAccessResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/AcceptedAccess"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "GuestRemovalResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/GuestRemoval"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "MemberListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pagination": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "next_cursor": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "next_cursor"
+                ]
+              }
+            },
+            "required": [
+              "request_id",
+              "pagination"
+            ]
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "InvitationListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pagination": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "next_cursor": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "next_cursor"
+                ]
+              }
+            },
+            "required": [
+              "request_id",
+              "pagination"
+            ]
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invitation"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "GuestListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Guest"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      }
+    },
+    "parameters": {
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "description": "Opaque authenticated cursor bound to actor, workspace, resource, filter and the operation-specific ordering described below; mismatch is invalid_cursor."
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\"[1-9][0-9]*\"$",
+          "format": "handdraw-etag"
+        },
+        "description": "Strong quoted decimal metadata revision. Missing: 428. Stale: 412. Never the CRDT revision."
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "handdraw-idempotency-key"
+        },
+        "description": "Nonzero client UUID, scoped to actor+operation. Same normalized payload retries reuse the result after current authorization. Changed payload: 409; in progress: 202; 24-hour record TTL."
+      },
+      "workspace_id": {
+        "name": "workspace_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/WorkspaceID"
+        }
+      },
+      "project_id": {
+        "name": "project_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/ProjectID"
+        }
+      },
+      "board_id": {
+        "name": "board_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/BoardID"
+        }
+      },
+      "user_id": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UserID"
+        }
+      },
+      "invitation_id": {
+        "name": "invitation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/InvitationID"
+        }
+      }
+    },
+    "responses": {
+      "400": {
+        "description": "invalid_request / invalid_cursor / invalid_resource_id",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "401": {
+        "description": "unauthenticated",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "403": {
+        "description": "permission_denied / entitlement_read_only",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "404": {
+        "description": "not_found (including inaccessible IDs)",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "409": {
+        "description": "idempotency_conflict / project_not_empty / board_initializing / membership_conflict",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "410": {
+        "description": "invitation_gone",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "412": {
+        "description": "revision_conflict",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "413": {
+        "description": "payload_too_large",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "415": {
+        "description": "unsupported_media_type",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "422": {
+        "description": "invalid_document_schema",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "428": {
+        "description": "precondition_required",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "429": {
+        "description": "rate_limited",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "503": {
+        "description": "identity_unavailable / dependency_unavailable / save_unavailable",
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "private, no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+template: testify
+all: false
+dir: "{{.InterfaceDirRelative}}/mocks"
+pkgname: mocks
+filename: "{{.InterfaceName | snakecase}}.go"
+structname: "Mock{{.InterfaceName}}"
+packages:
+  github.com/chai-rs/handdraw-server:
+    config:
+      recursive: true
+      exclude-subpkg-regex:
+        - "/mocks$"

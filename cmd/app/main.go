@@ -1,0 +1,278 @@
+// Command app runs the Handdraw Fiber bootstrap.
+package main
+
+import (
+	"context"
+	"errors"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	boardapi "github.com/chai-rs/handdraw-server/app/board_management/inbound/api"
+	boardquery "github.com/chai-rs/handdraw-server/app/board_management/infra/db"
+	boardworkflow "github.com/chai-rs/handdraw-server/app/board_management/service"
+	boarddb "github.com/chai-rs/handdraw-server/internal/board/infra/db"
+	boardservice "github.com/chai-rs/handdraw-server/internal/board/service"
+	documentcodec "github.com/chai-rs/handdraw-server/internal/document/infra/ygo"
+	documentservice "github.com/chai-rs/handdraw-server/internal/document/service"
+	jobdb "github.com/chai-rs/handdraw-server/internal/job/infra/db"
+	jobservice "github.com/chai-rs/handdraw-server/internal/job/service"
+
+	accessdb "github.com/chai-rs/handdraw-server/app/access/infra/db"
+	accessservice "github.com/chai-rs/handdraw-server/app/access/service"
+	membershipapi "github.com/chai-rs/handdraw-server/app/membership/inbound/api"
+	membershipdb "github.com/chai-rs/handdraw-server/app/membership/infra/db"
+	membershipservice "github.com/chai-rs/handdraw-server/app/membership/service"
+	onboardingdb "github.com/chai-rs/handdraw-server/app/onboarding/infra/db"
+	onboardingservice "github.com/chai-rs/handdraw-server/app/onboarding/service"
+	workspaceapi "github.com/chai-rs/handdraw-server/app/workspace_management/inbound/api"
+	workspaceservice "github.com/chai-rs/handdraw-server/app/workspace_management/service"
+	idemdb "github.com/chai-rs/handdraw-server/internal/idempotency/infra/db"
+	workspacedb "github.com/chai-rs/handdraw-server/internal/workspace/infra/db"
+	workspacedomain "github.com/chai-rs/handdraw-server/internal/workspace/service"
+	"github.com/chai-rs/handdraw-server/pkg/cursor"
+	"github.com/chai-rs/handdraw-server/pkg/rlstx"
+
+	identityapi "github.com/chai-rs/handdraw-server/internal/identity/inbound/api"
+	identitydb "github.com/chai-rs/handdraw-server/internal/identity/infra/db"
+	"github.com/chai-rs/handdraw-server/internal/identity/infra/supabase"
+	identityservice "github.com/chai-rs/handdraw-server/internal/identity/service"
+	bunx "github.com/chai-rs/handdraw-server/pkg/bun"
+	configx "github.com/chai-rs/handdraw-server/pkg/config"
+	fx "github.com/chai-rs/handdraw-server/pkg/fiber"
+	logx "github.com/chai-rs/handdraw-server/pkg/logger"
+	"github.com/gofiber/fiber/v3"
+)
+
+type configuration struct {
+	HTTP       fx.Config
+	Log        logx.Config
+	Identity   identityConfig
+	Workspace  workspaceConfig
+	Board      boardConfig
+	Cleanup    cleanupConfig
+	Membership membershipConfig
+}
+
+func main() {
+	conf, err := configx.New[configuration]("APP")
+	if err != nil {
+		logx.Error().Msg("invalid application configuration")
+		os.Exit(1)
+	}
+
+	logx.Bind(&conf.Log)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, *conf); err != nil {
+		logx.Error().Err(err).Msg("handdraw-server stopped")
+		os.Exit(1)
+	}
+}
+
+type identityConfig struct {
+	Enabled        bool          `default:"false"`
+	DatabaseURL    string        `split_words:"true" json:"-"`
+	SupabaseURL    string        `split_words:"true"`
+	PublishableKey string        `split_words:"true" json:"-"`
+	Audience       string        `default:"authenticated"`
+	Timeout        time.Duration `default:"5s"`
+}
+
+type membershipConfig struct {
+	Enabled  bool   `default:"false"`
+	TokenKey string `split_words:"true" json:"-"`
+}
+
+type boardConfig struct {
+	Enabled bool `default:"false"`
+}
+type cleanupConfig struct {
+	Enabled     bool   `default:"false"`
+	DatabaseURL string `split_words:"true" json:"-"`
+}
+
+type workspaceConfig struct {
+	Enabled     bool   `default:"false"`
+	DatabaseURL string `split_words:"true" json:"-"`
+	CursorKey   string `split_words:"true" json:"-"`
+}
+
+func run(ctx context.Context, config configuration) error {
+	if config.Membership.Enabled && !config.Board.Enabled {
+		return errors.New("membership routes require board routes")
+	}
+
+	var membershipTokens *membershipservice.Tokens
+
+	if config.Membership.Enabled {
+		if config.Membership.TokenKey == config.Workspace.CursorKey {
+			return errors.New("membership token key must be independent of the cursor key")
+		}
+
+		var err error
+
+		membershipTokens, err = membershipservice.NewTokens([]byte(config.Membership.TokenKey))
+		if err != nil {
+			return errors.New("membership requires an independent token key of at least 32 bytes")
+		}
+	}
+
+	if config.Board.Enabled && !config.Workspace.Enabled {
+		return errors.New("board routes require workspace routes")
+	}
+
+	if config.Cleanup.Enabled && !config.Board.Enabled {
+		return errors.New("cleanup requires board routes")
+	}
+
+	if config.Workspace.Enabled && !config.Identity.Enabled {
+		return errors.New("workspace routes require identity")
+	}
+
+	var (
+		boardHandler      *boardapi.Handler
+		membershipHandler *membershipapi.Handler
+		workspaceHandler  *workspaceapi.Handler
+		handler           *identityapi.Handler
+		checks            []fx.Check
+	)
+
+	if config.Identity.Enabled {
+		verifier, err := supabase.New(supabase.Config{ProjectURL: config.Identity.SupabaseURL, PublishableKey: config.Identity.PublishableKey, Audience: config.Identity.Audience, Timeout: config.Identity.Timeout})
+		if err != nil {
+			return err
+		}
+
+		db, err := (bunx.PGConfig{URL: config.Identity.DatabaseURL}).New(ctx)
+		if err != nil {
+			return err
+		}
+
+		defer func() { _ = db.Close() }()
+
+		if err := bunx.CheckSchema(ctx, db, 9); err != nil {
+			return err
+		}
+
+		profiles := identitydb.NewProfileRepository(db)
+		if err := profiles.Check(ctx); err != nil {
+			return err
+		}
+
+		identity := identityservice.New(verifier, profiles)
+		handler = identityapi.New(identity)
+		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 9) })}
+
+		if config.Workspace.Enabled {
+			cursors, err := cursor.New([]byte(config.Workspace.CursorKey))
+			if err != nil {
+				return errors.New("workspace cursor key must contain at least 32 bytes")
+			}
+
+			requestDB, err := (bunx.PGConfig{URL: config.Workspace.DatabaseURL}).New(ctx)
+			if err != nil {
+				return err
+			}
+
+			defer func() { _ = requestDB.Close() }()
+
+			if err = accessdb.CheckRequestPool(ctx, requestDB); err != nil {
+				return err
+			}
+
+			if err = bunx.CheckSchema(ctx, requestDB, 9); err != nil {
+				return err
+			}
+
+			access := accessservice.New(accessdb.New())
+			session := accessservice.NewSession(identity, rlstx.NewRunner(requestDB))
+			workflow := workspaceservice.New(workspacedomain.New(workspacedb.New()), access)
+			workspaceHandler = workspaceapi.New(session, workflow, cursors).WithOnboarding(onboardingservice.New(onboardingdb.New(), idemdb.New(), access))
+
+			if config.Board.Enabled {
+				if config.Cleanup.Enabled {
+					cleanupDB, err := (bunx.PGConfig{URL: config.Cleanup.DatabaseURL}).New(ctx)
+					if err != nil {
+						return err
+					}
+					defer func() { _ = cleanupDB.Close() }()
+
+					worker := jobdb.NewWorker(cleanupDB)
+					if err = worker.Check(ctx); err != nil {
+						return err
+					}
+
+					if err = bunx.CheckSchema(ctx, cleanupDB, 9); err != nil {
+						return err
+					}
+
+					checks = append(checks, fx.NewCheck("cleanup_store", worker.Check))
+					workerCtx, cancel := context.WithCancel(ctx)
+
+					done := make(chan struct{})
+					go func() {
+						defer close(done)
+
+						jobservice.NewWorker(worker).Run(workerCtx, func(err error) { logx.Error().Err(err).Msg("board cleanup pass failed") })
+					}()
+
+					defer func() { cancel(); <-done }()
+				}
+
+				boards := boardworkflow.New(boardservice.NewBoardService(boarddb.NewBoardRepository()), boardservice.NewProjectService(boarddb.NewProjectRepository()), documentservice.NewInitialBuilder(documentcodec.Codec{}), access, boardquery.New(), idemdb.New(), jobdb.New())
+
+				boardHandler = boardapi.New(session, boards, cursors, config.Cleanup.Enabled)
+				if config.Membership.Enabled {
+					members := membershipservice.New(membershipdb.New(), access, membershipTokens, idemdb.New())
+					membershipHandler = membershipapi.New(session, members, cursors)
+					boardHandler.WithSharedBoards(members)
+				}
+			}
+
+			checks = append(checks, fx.NewCheck("workspace_store", func(ctx context.Context) error {
+				if err := bunx.CheckSchema(ctx, requestDB, 9); err != nil {
+					return err
+				}
+
+				return accessdb.CheckRequestPool(ctx, requestDB)
+			}))
+		}
+	}
+
+	server, err := fx.New(fx.Params{Config: config.HTTP, ReadinessChecks: checks, Routes: func(router fiber.Router) {
+		if handler != nil {
+			handler.Register(router.Group("/v1"))
+		}
+
+		if boardHandler != nil {
+			boardHandler.Register(router.Group("/v1"))
+		}
+
+		if membershipHandler != nil {
+			membershipHandler.Register(router.Group("/v1"))
+		}
+
+		if workspaceHandler != nil {
+			workspaceHandler.Register(router.Group("/v1"))
+		}
+
+		router.Get("/healthz", func(c fiber.Ctx) error { return c.JSON(fiber.Map{"service": "handdraw-server", "status": "ok"}) })
+	}})
+	if err != nil {
+		return err
+	}
+
+	logx.Info().Str("address", config.HTTP.Address).Msg("handdraw-server starting")
+
+	if err := server.Run(ctx); err != nil {
+		return err
+	}
+
+	logx.Info().Msg("handdraw-server stopped")
+
+	return nil
+}

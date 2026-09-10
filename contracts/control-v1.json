@@ -1,0 +1,77 @@
+[
+  {
+    "protocol_version": 1,
+    "type": "client-hello",
+    "supported_schema_versions": [
+      1
+    ],
+    "client_build": "editor-contract-v1"
+  },
+  {
+    "protocol_version": 1,
+    "type": "save-checkpoint",
+    "id": "checkpoint-1"
+  },
+  {
+    "protocol_version": 1,
+    "type": "session-ready",
+    "session_id": "session-1",
+    "schema_version": 1,
+    "document_revision": "9223372036854775807",
+    "capabilities": {
+      "can_read": true,
+      "can_edit_content": false,
+      "can_comment": true,
+      "can_export": true,
+      "can_manage_guests": false
+    },
+    "heartbeat_interval_ms": 20000,
+    "idle_timeout_seconds": 7200,
+    "idle_expires_at": "2026-09-10T02:00:00Z",
+    "server_time": "2026-09-10T00:00:00Z",
+    "warning_before_seconds": 300
+  },
+  {
+    "protocol_version": 1,
+    "type": "capabilities-changed",
+    "capabilities": {
+      "can_read": true,
+      "can_edit_content": false,
+      "can_comment": false,
+      "can_export": true,
+      "can_manage_guests": false
+    },
+    "reason": "entitlement_expired"
+  },
+  {
+    "protocol_version": 1,
+    "type": "saved",
+    "id": "checkpoint-1",
+    "document_revision": "42"
+  },
+  {
+    "protocol_version": 1,
+    "type": "session-error",
+    "code": "schema_upgrade_required",
+    "reconnect_policy": "reload_client"
+  },
+  {
+    "protocol_version": 1,
+    "type": "session-activity",
+    "activity": "keep_alive"
+  },
+  {
+    "protocol_version": 1,
+    "type": "session-idle-deadline",
+    "idle_timeout_seconds": 7200,
+    "idle_expires_at": "2026-09-10T02:00:00Z",
+    "server_time": "2026-09-10T00:00:00Z",
+    "warning_before_seconds": 300
+  },
+  {
+    "protocol_version": 1,
+    "type": "session-ended",
+    "reason": "idle_timeout",
+    "reconnect_policy": "fresh_session"
+  }
+]

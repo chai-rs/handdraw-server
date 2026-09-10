@@ -1,0 +1,4 @@
+{
+  "golang_migrate": "v4.19.1",
+  "postgres_image": "postgres:17"
+}
