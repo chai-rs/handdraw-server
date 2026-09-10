@@ -64,6 +64,10 @@
     {
       "name": "Local sharing",
       "description": "Read-only temporary relay; no Cloud board or asset persistence."
+    },
+    {
+      "name": "Billing",
+      "description": "Local deterministic billing, reviewed plan/seat changes and payment history. Live Polar payments and portal are disabled."
     }
   ],
   "paths": {
@@ -2198,7 +2202,7 @@
         "operationId": "connectCollaboration",
         "summary": "Open an online collaboration session",
         "security": [],
-        "description": "WebSocket upgrade, enabled by APP_COLLABORATION_ENABLED with board/workspace/identity enabled and explicit APP_COLLABORATION_ORIGINS. Requires a direct or session-pooled PostgreSQL connection. Supabase token is sent in-band, never in the URL. Hocuspocus binary framing: authenticate \u2192 protocol-1 client-hello (schema 1) \u2192 session-ready \u2192 Yjs sync. Five sockets per board and 25 per process; one database-locked runtime. Viewer can read and send presence; Owner/Editor can mutate subject to current entitlement. saved acknowledges a save-checkpoint only after PostgreSQL commit. Disconnect/idle/revocation freezes the client; reopen with a fresh Y.Doc and no offline replay. Cloud idle 7200 seconds, Team 14400, warning 300; heartbeat is not activity. Scalar Try It does not implement this binary protocol. See contracts/control-v1.json and docs/server/durable-collaboration.md.",
+        "description": "WebSocket upgrade, enabled by APP_COLLABORATION_ENABLED with board/workspace/identity enabled and explicit APP_COLLABORATION_ORIGINS. Requires a direct or session-pooled PostgreSQL connection. Supabase token is sent in-band, never in the URL. Hocuspocus binary framing: authenticate → protocol-1 client-hello (schema 1) → session-ready → Yjs sync. Five sockets per board and 25 per process; one database-locked runtime. Viewer can read and send presence; Owner/Editor can mutate subject to current entitlement. saved acknowledges a save-checkpoint only after PostgreSQL commit. Disconnect/idle/revocation freezes the client; reopen with a fresh Y.Doc and no offline replay. Cloud idle 7200 seconds, Team 14400, warning 300; heartbeat is not activity. Scalar Try It does not implement this binary protocol. See contracts/control-v1.json and docs/server/durable-collaboration.md.",
         "parameters": [
           {
             "name": "room",
@@ -3286,6 +3290,557 @@
           },
           "426": {
             "description": "A WebSocket upgrade is required."
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/subscription": {
+      "get": {
+        "operationId": "getSubscription",
+        "summary": "Get subscription",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "200": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/history": {
+      "get": {
+        "operationId": "getPaymentHistory",
+        "summary": "Get payment history",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "200": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingHistoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/plan-changes/{intent_id}": {
+      "get": {
+        "operationId": "getPlanChange",
+        "summary": "Get plan change",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "name": "intent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/BillingIntentID"
+            }
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "200": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/plan-change-quotes": {
+      "post": {
+        "operationId": "quotePlanChange",
+        "summary": "Quote plan change",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "200": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/seat-change-quotes": {
+      "post": {
+        "operationId": "quoteSeatChange",
+        "summary": "Quote seat change",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "200": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/plan-changes": {
+      "post": {
+        "operationId": "confirmPlanChange",
+        "summary": "Confirm plan change",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "202": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/seat-changes": {
+      "post": {
+        "operationId": "confirmSeatChange",
+        "summary": "Confirm seat change",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "202": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/checkouts": {
+      "post": {
+        "operationId": "createCheckoutIntent",
+        "summary": "Create checkout intent",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "202": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/cancellation": {
+      "post": {
+        "operationId": "cancelRenewal",
+        "summary": "Cancel renewal",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "202": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "resumeRenewal",
+        "summary": "Resume renewal",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "x-implementation-status": "local-adapter-only",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "responses": {
+          "202": {
+            "description": "Success; an accepted intention alone grants no entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCommand"
+              }
+            }
           }
         }
       }
@@ -5228,6 +5783,446 @@
           },
           "result": {
             "$ref": "#/components/schemas/LocalAdmission"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "BillingIntentID": {
+        "type": "string",
+        "pattern": "^bci_[0-9A-Za-z]{27}$"
+      },
+      "BillingCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "cloud",
+              "team"
+            ]
+          },
+          "target_plan": {
+            "type": "string",
+            "enum": [
+              "cloud",
+              "team"
+            ]
+          },
+          "billing_interval": {
+            "type": "string",
+            "enum": [
+              "month",
+              "year"
+            ]
+          },
+          "editor_seats": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "quote_id": {
+            "$ref": "#/components/schemas/BillingIntentID"
+          },
+          "plan_change_id": {
+            "$ref": "#/components/schemas/BillingIntentID"
+          },
+          "intent_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "confirm_member_changes": {
+            "type": "boolean"
+          },
+          "return_path": {
+            "type": "string",
+            "enum": [
+              "/app/cloud"
+            ]
+          },
+          "demote_user_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/UserID"
+            }
+          },
+          "revoke_invitation_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/InvitationID"
+            }
+          },
+          "cancel_at_period_end": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": []
+      },
+      "BillingIntent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/BillingIntentID"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "checkout",
+              "plan_upgrade",
+              "plan_downgrade",
+              "seat_change",
+              "cancel",
+              "resume"
+            ]
+          },
+          "target_plan": {
+            "type": "string"
+          },
+          "source_plan": {
+            "type": "string",
+            "nullable": true
+          },
+          "current_seats": {
+            "type": "integer",
+            "nullable": true
+          },
+          "target_seats": {
+            "type": "integer"
+          },
+          "billing_interval": {
+            "type": "string"
+          },
+          "intent_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "subscription_revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "workspace_access_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "status": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "confirmed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "quote": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "amount_due_minor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "recurring_amount_minor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "USD"
+                ]
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "amount_due_minor",
+              "recurring_amount_minor",
+              "currency",
+              "expires_at"
+            ]
+          },
+          "member_changes": {
+            "type": "object",
+            "description": "Exact removal or demotion IDs; Owner is preserved and unrelated board Guests remain."
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "used_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reserved_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "target_quota_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uploads_blocked_after_change": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "used_bytes",
+              "reserved_bytes",
+              "target_quota_bytes",
+              "uploads_blocked_after_change"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "local"
+            ]
+          },
+          "checkout_url": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              null
+            ]
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "live_payment": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "portal": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "live_payment",
+              "portal"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "target_plan",
+          "source_plan",
+          "current_seats",
+          "target_seats",
+          "billing_interval",
+          "intent_revision",
+          "subscription_revision",
+          "workspace_access_revision",
+          "status",
+          "phase",
+          "effective_at",
+          "confirmed_at",
+          "quote",
+          "member_changes",
+          "storage",
+          "provider",
+          "checkout_url",
+          "capabilities"
+        ]
+      },
+      "BillingIntentResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/BillingIntent"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "BillingSubscription": {
+        "type": "object",
+        "description": "Members receive effective entitlement only. Owner additionally receives plan, seats, periods and projection revision. No provider credentials."
+      },
+      "BillingSubscriptionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/BillingSubscription"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "PaymentOrder": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ord_[0-9A-Za-z]{27}$"
+          },
+          "workspace_id": {
+            "$ref": "#/components/schemas/WorkspaceID"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "provider_order_id": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "amount_minor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "paid_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "service_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "service_until": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "provider",
+          "provider_order_id",
+          "currency",
+          "amount_minor",
+          "paid_at",
+          "service_from",
+          "service_until"
+        ]
+      },
+      "PaymentRefund": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^rfnd_[0-9A-Za-z]{27}$"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "provider_refund_id": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "refunded_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "provider_refund_id",
+          "amount_minor",
+          "refunded_at"
+        ]
+      },
+      "BillingHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "orders": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PaymentOrder"
+            }
+          },
+          "refunds": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PaymentRefund"
+            }
+          }
+        },
+        "required": [
+          "orders",
+          "refunds"
+        ]
+      },
+      "BillingHistoryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/BillingHistory"
           }
         },
         "required": [

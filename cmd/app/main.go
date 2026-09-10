@@ -9,6 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	billingapi "github.com/chai-rs/handdraw-server/app/billing/inbound/api"
+	billingdb "github.com/chai-rs/handdraw-server/app/billing/infra/db"
+	billinglocal "github.com/chai-rs/handdraw-server/app/billing/infra/local"
+	billingservice "github.com/chai-rs/handdraw-server/app/billing/service"
 	localapi "github.com/chai-rs/handdraw-server/app/local_sharing/inbound/api"
 	localservice "github.com/chai-rs/handdraw-server/app/local_sharing/service"
 
@@ -72,8 +76,15 @@ type configuration struct {
 	Membership    membershipConfig
 	Collaboration collaborationConfig
 	Asset         assetConfig
+	Billing       billingConfig
 	Transfer      transferConfig
 	LocalShare    localShareConfig `split_words:"true"`
+}
+
+type billingConfig struct {
+	Enabled     bool
+	DatabaseURL string `split_words:"true"`
+	Provider    string
 }
 
 func main() {
@@ -147,6 +158,10 @@ func run(ctx context.Context, config configuration) error {
 		return errors.New("Local sharing requires identity verification")
 	}
 
+	if config.Billing.Enabled && (!config.Board.Enabled || !config.Cleanup.Enabled || !config.Asset.Enabled || config.Billing.Provider != "local") {
+		return errors.New("local billing requires board, Garage assets and cleanup")
+	}
+
 	if config.Transfer.Enabled && !config.Asset.Enabled {
 		return errors.New("transfers require private assets")
 	}
@@ -211,6 +226,7 @@ func run(ctx context.Context, config configuration) error {
 		localHandler         *localapi.Server
 		collaborationHandler *collabws.Server
 		boardHandler         *boardapi.Handler
+		billingHandler       *billingapi.Handler
 		transferHandler      *transferapi.Handler
 		assetHandler         *assetapi.Handler
 		discussionHandler    *discussionapi.Handler
@@ -233,7 +249,7 @@ func run(ctx context.Context, config configuration) error {
 
 		defer func() { _ = db.Close() }()
 
-		if err := bunx.CheckSchema(ctx, db, 12); err != nil {
+		if err := bunx.CheckSchema(ctx, db, 13); err != nil {
 			return err
 		}
 
@@ -253,7 +269,7 @@ func run(ctx context.Context, config configuration) error {
 			defer localHandler.Close()
 		}
 
-		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 12) })}
+		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 13) })}
 
 		if config.Workspace.Enabled {
 			cursors, err := cursor.New([]byte(config.Workspace.CursorKey))
@@ -272,7 +288,7 @@ func run(ctx context.Context, config configuration) error {
 				return err
 			}
 
-			if err = bunx.CheckSchema(ctx, requestDB, 12); err != nil {
+			if err = bunx.CheckSchema(ctx, requestDB, 13); err != nil {
 				return err
 			}
 
@@ -294,7 +310,7 @@ func run(ctx context.Context, config configuration) error {
 						return err
 					}
 
-					if err = bunx.CheckSchema(ctx, cleanupDB, 12); err != nil {
+					if err = bunx.CheckSchema(ctx, cleanupDB, 13); err != nil {
 						return err
 					}
 
@@ -347,6 +363,37 @@ func run(ctx context.Context, config configuration) error {
 
 				boards := boardworkflow.New(boardservice.NewBoardService(boarddb.NewBoardRepository()), boardservice.NewProjectService(boarddb.NewProjectRepository()), documentservice.NewInitialBuilder(documentcodec.Codec{}), access, boardquery.New(), idemdb.New(), jobdb.New())
 
+				if config.Billing.Enabled {
+					billingDB, err := (bunx.PGConfig{URL: config.Billing.DatabaseURL}).New(ctx)
+					if err != nil {
+						return err
+					}
+					defer func() { _ = billingDB.Close() }()
+
+					repo := billingdb.New(billingDB)
+					if err = repo.Check(ctx); err != nil {
+						return err
+					}
+
+					if err = bunx.CheckSchema(ctx, billingDB, 13); err != nil {
+						return err
+					}
+
+					checks = append(checks, fx.NewCheck("billing_store", repo.Check))
+					billingCtx, billingCancel := context.WithCancel(ctx)
+
+					billingDone := make(chan struct{})
+					go func() {
+						defer close(billingDone)
+
+						jobservice.NewWorker(billingservice.New(repo, billinglocal.New(billingDB))).Run(billingCtx, func(err error) { logx.Error().Msg("billing pass failed") })
+					}()
+
+					defer func() { billingCancel(); <-billingDone }()
+
+					billingHandler = billingapi.New(session, billingservice.New(billingdb.New(nil), nil))
+				}
+
 				if config.Transfer.Enabled {
 					transferDB, err := (bunx.PGConfig{URL: config.Transfer.DatabaseURL}).New(ctx)
 					if err != nil {
@@ -389,7 +436,7 @@ func run(ctx context.Context, config configuration) error {
 			}
 
 			checks = append(checks, fx.NewCheck("workspace_store", func(ctx context.Context) error {
-				if err := bunx.CheckSchema(ctx, requestDB, 12); err != nil {
+				if err := bunx.CheckSchema(ctx, requestDB, 13); err != nil {
 					return err
 				}
 
@@ -413,6 +460,10 @@ func run(ctx context.Context, config configuration) error {
 
 		if boardHandler != nil {
 			boardHandler.Register(router.Group("/v1"))
+		}
+
+		if billingHandler != nil {
+			billingHandler.Register(router.Group("/v1"))
 		}
 
 		if transferHandler != nil {

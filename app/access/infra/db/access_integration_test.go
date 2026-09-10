@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	billingapi "github.com/chai-rs/handdraw-server/app/billing/inbound/api"
+	billingdb "github.com/chai-rs/handdraw-server/app/billing/infra/db"
+	billingservice "github.com/chai-rs/handdraw-server/app/billing/service"
 	localapi "github.com/chai-rs/handdraw-server/app/local_sharing/inbound/api"
 	localservice "github.com/chai-rs/handdraw-server/app/local_sharing/service"
 
@@ -88,7 +91,7 @@ var authFixture string
 type accessSuite struct {
 	assets *assets3.Storage
 	suite.Suite
-	admin, request, resolver, cleanup, transfer *bun.DB
+	admin, request, resolver, cleanup, transfer, billing *bun.DB
 }
 type (
 	user     struct{ id, subject string }
@@ -125,7 +128,7 @@ func (s *accessSuite) SetupSuite() {
 	_, err = s.admin.ExecContext(ctx, authFixture)
 	require.NoError(t, err)
 	testsupport.Migrate(t, dsn, "up")
-	for role, capability := range map[string]string{"access_request": "handdraw_request", "access_resolver": "handdraw_identity_resolver", "access_cleanup": "handdraw_cleanup_worker", "access_transfer": "handdraw_transfer_worker"} {
+	for role, capability := range map[string]string{"access_request": "handdraw_request", "access_resolver": "handdraw_identity_resolver", "access_cleanup": "handdraw_cleanup_worker", "access_transfer": "handdraw_transfer_worker", "access_billing": "handdraw_billing_runtime"} {
 		_, err = s.admin.ExecContext(ctx, "CREATE ROLE ? LOGIN PASSWORD 'local_test_only' IN ROLE ?", bun.Ident(role), bun.Ident(capability))
 		require.NoError(t, err)
 		u, err := url.Parse(dsn)
@@ -134,6 +137,8 @@ func (s *accessSuite) SetupSuite() {
 		db := s.open(t, u.String())
 		if role == "access_request" {
 			s.request = db
+		} else if role == "access_billing" {
+			s.billing = db
 		} else if role == "access_transfer" {
 			s.transfer = db
 		} else if role == "access_cleanup" {
@@ -421,6 +426,7 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 		require.NoError(t, err)
 		members := membershipservice.New(membershipdb.New(), policy, tokens, idemdb.New())
 		storage := s.assets
+		billingapi.New(session, billingservice.New(billingdb.New(nil), nil)).Register(router.Group("/v1"))
 		transferapi.New(session, transferservice.New(transferdb.New(nil), storage, documentcodec.Codec{}, idemdb.New())).Register(router.Group("/v1"))
 		assetapi.New(session, assetservice.New(assetdb.New(), storage, idemdb.New())).Register(router.Group("/v1"))
 		discussionapi.New(session, discussionservice.New(discussiondb.New(), documentcodec.Codec{}), cursors).Register(router.Group("/v1"))
