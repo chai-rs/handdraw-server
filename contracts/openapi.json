@@ -60,6 +60,10 @@
     {
       "name": "Transfers",
       "description": "Leased imports and snapshot exports using private Garage artifacts."
+    },
+    {
+      "name": "Local sharing",
+      "description": "Read-only temporary relay; no Cloud board or asset persistence."
     }
   ],
   "paths": {
@@ -3042,6 +3046,249 @@
           }
         }
       }
+    },
+    "/v1/local-share-sessions": {
+      "post": {
+        "operationId": "createLocalShare",
+        "summary": "Start an ephemeral signed-in host session",
+        "tags": [
+          "Local sharing"
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalAdmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "410": {
+            "description": "Session ended; no automatic restart or recovery"
+          },
+          "429": {
+            "description": "Session/connection/memory capacity exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "schema_version"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "type": "integer",
+                    "enum": [
+                      1
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/local-share-sessions/{session_id}/join": {
+      "post": {
+        "operationId": "joinLocalShare",
+        "summary": "Exchange a fragment invitation for a Viewer token",
+        "tags": [
+          "Local sharing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/session_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalAdmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "410": {
+            "description": "Session ended; no automatic restart or recovery"
+          },
+          "429": {
+            "description": "Session/connection/memory capacity exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "invite_token"
+                ],
+                "properties": {
+                  "invite_token": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/local-share-sessions/{session_id}/tokens": {
+      "post": {
+        "operationId": "renewLocalShare",
+        "summary": "Renew a signed-in in-memory grant without extending idle",
+        "tags": [
+          "Local sharing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/session_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalAdmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "410": {
+            "description": "Session ended; no automatic restart or recovery"
+          },
+          "429": {
+            "description": "Session/connection/memory capacity exceeded"
+          }
+        }
+      }
+    },
+    "/v1/local-share-sessions/{session_id}": {
+      "delete": {
+        "operationId": "revokeLocalShare",
+        "summary": "End sharing and clear relay memory as host",
+        "tags": [
+          "Local sharing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/session_id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "410": {
+            "description": "Session ended; no automatic restart or recovery"
+          },
+          "429": {
+            "description": "Session/connection/memory capacity exceeded"
+          }
+        }
+      }
+    },
+    "/v1/local-collaboration": {
+      "get": {
+        "tags": [
+          "Local sharing"
+        ],
+        "operationId": "localCollaboration",
+        "summary": "Ephemeral Local protocol 1, host-only snapshots",
+        "security": [],
+        "description": "Use room=local:lsh_ID. Send text JSON auth with protocol_version 1 and a Local admission token before receiving content. Supabase JWTs alone and Cloud room names are rejected. Host-only snapshot, session-activity, presence and reauth frames. Server emits session-state and session-ended; Viewer cannot publish. 8 MiB snapshot, 32 MiB retained globally, 25 sockets, 5 peers per room; host loss, revocation, token expiry or 30-minute inactivity ends access.",
+        "parameters": [
+          {
+            "name": "room",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^local:lsh_[0-9A-Za-z]{27}$"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Switching Protocols; authentication and schema negotiation still required before content disclosure."
+          },
+          "400": {
+            "description": "Invalid room identifier."
+          },
+          "403": {
+            "description": "Origin is not allowed."
+          },
+          "426": {
+            "description": "A WebSocket upgrade is required."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4921,6 +5168,73 @@
           "meta",
           "result"
         ]
+      },
+      "LocalAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "token",
+          "role",
+          "token_expires_at",
+          "idle_expires_at",
+          "server_time"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "Five-minute admission secret. In-band only; never put it in a query string."
+          },
+          "invite_token": {
+            "type": "string",
+            "description": "Returned only on creation; client places it in the viewer link fragment."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "host",
+              "viewer"
+            ]
+          },
+          "token_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LocalAdmissionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/LocalAdmission"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
       }
     },
     "parameters": {
@@ -5042,6 +5356,16 @@
         "schema": {
           "type": "string",
           "pattern": "^job_[0-9A-Za-z]{27}$",
+          "format": "handdraw-resource-id"
+        }
+      },
+      "session_id": {
+        "name": "session_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^lsh_[0-9A-Za-z]{27}$",
           "format": "handdraw-resource-id"
         }
       }

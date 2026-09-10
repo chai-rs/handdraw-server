@@ -44,7 +44,7 @@ func Validate(value, prefix string) error {
 
 func known(prefix string) bool {
 	switch prefix {
-	case "usr", "ws", "prj", "brd", "inv", "thr", "cmt", "ast", "upl", "bci", "evt", "job", "idem", "pag", "note", "fld":
+	case "usr", "ws", "prj", "brd", "inv", "thr", "cmt", "ast", "upl", "bci", "evt", "job", "idem", "pag", "note", "fld", "lsh":
 		return true
 	default:
 		return false

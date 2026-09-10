@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	localapi "github.com/chai-rs/handdraw-server/app/local_sharing/inbound/api"
+	localservice "github.com/chai-rs/handdraw-server/app/local_sharing/service"
+
 	assetapi "github.com/chai-rs/handdraw-server/app/asset_management/inbound/api"
 	assetdb "github.com/chai-rs/handdraw-server/app/asset_management/infra/db"
 	assetservice "github.com/chai-rs/handdraw-server/app/asset_management/service"
@@ -394,6 +397,8 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 	if len(accounts) > 0 {
 		httpConfig.CORS = fx.CORSConfig{Enabled: true, AllowOrigins: []string{"http://127.0.0.1:5175"}}
 	}
+	local, err := localapi.New(identityService, localservice.New(nil), []string{"http://127.0.0.1:5175"})
+	require.NoError(t, err)
 	var collaboration *collabws.Server
 	if len(accounts) > 0 {
 		authority, err := collabdb.Acquire(t.Context(), s.request)
@@ -407,6 +412,7 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 		require.NoError(t, err)
 	}
 	server, err := fx.New(fx.Params{Config: httpConfig, Routes: func(router fiber.Router) {
+		local.Register(router.Group("/v1"))
 		if collaboration != nil {
 			collaboration.Register(router.Group("/v1"))
 		}
@@ -426,6 +432,7 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 	done := make(chan error, 1)
 	go func() { done <- server.Run(ctx) }()
 	t.Cleanup(func() {
+		local.Close()
 		if collaboration != nil {
 			collaboration.Close()
 		}

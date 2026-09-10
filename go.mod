@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.0
 	github.com/aws/smithy-go v1.28.1
+	github.com/fasthttp/websocket v1.5.12
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-ozzo/ozzo-validation/v4 v4.4.1
 	github.com/gofiber/contrib/v3/websocket v1.2.6
@@ -56,7 +57,6 @@ require (
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
-	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect

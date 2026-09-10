@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	localapi "github.com/chai-rs/handdraw-server/app/local_sharing/inbound/api"
+	localservice "github.com/chai-rs/handdraw-server/app/local_sharing/service"
+
 	boardapi "github.com/chai-rs/handdraw-server/app/board_management/inbound/api"
 	boardquery "github.com/chai-rs/handdraw-server/app/board_management/infra/db"
 	boardworkflow "github.com/chai-rs/handdraw-server/app/board_management/service"
@@ -70,6 +73,7 @@ type configuration struct {
 	Collaboration collaborationConfig
 	Asset         assetConfig
 	Transfer      transferConfig
+	LocalShare    localShareConfig `split_words:"true"`
 }
 
 func main() {
@@ -88,6 +92,11 @@ func main() {
 		logx.Error().Err(err).Msg("handdraw-server stopped")
 		os.Exit(1)
 	}
+}
+
+type localShareConfig struct {
+	Enabled bool
+	Origins []string
 }
 
 type transferConfig struct {
@@ -134,6 +143,10 @@ type workspaceConfig struct {
 }
 
 func run(ctx context.Context, config configuration) error {
+	if config.LocalShare.Enabled && !config.Identity.Enabled {
+		return errors.New("Local sharing requires identity verification")
+	}
+
 	if config.Transfer.Enabled && !config.Asset.Enabled {
 		return errors.New("transfers require private assets")
 	}
@@ -195,6 +208,7 @@ func run(ctx context.Context, config configuration) error {
 	}
 
 	var (
+		localHandler         *localapi.Server
 		collaborationHandler *collabws.Server
 		boardHandler         *boardapi.Handler
 		transferHandler      *transferapi.Handler
@@ -229,7 +243,16 @@ func run(ctx context.Context, config configuration) error {
 		}
 
 		identity := identityservice.New(verifier, profiles)
+
 		handler = identityapi.New(identity)
+		if config.LocalShare.Enabled {
+			localHandler, err = localapi.New(identity, localservice.New(nil), config.LocalShare.Origins)
+			if err != nil {
+				return err
+			}
+			defer localHandler.Close()
+		}
+
 		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 12) })}
 
 		if config.Workspace.Enabled {
@@ -376,6 +399,10 @@ func run(ctx context.Context, config configuration) error {
 	}
 
 	server, err := fx.New(fx.Params{Config: config.HTTP, ReadinessChecks: checks, Routes: func(router fiber.Router) {
+		if localHandler != nil {
+			localHandler.Register(router.Group("/v1"))
+		}
+
 		if collaborationHandler != nil {
 			collaborationHandler.Register(router.Group("/v1"))
 		}
