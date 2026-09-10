@@ -22,6 +22,9 @@ import (
 	boardworkflow "github.com/chai-rs/handdraw-server/app/board_management/service"
 	collabdb "github.com/chai-rs/handdraw-server/app/collaboration/infra/db"
 	collabservice "github.com/chai-rs/handdraw-server/app/collaboration/service"
+	discussionapi "github.com/chai-rs/handdraw-server/app/discussion/inbound/api"
+	discussiondb "github.com/chai-rs/handdraw-server/app/discussion/infra/db"
+	discussionservice "github.com/chai-rs/handdraw-server/app/discussion/service"
 	membershipapi "github.com/chai-rs/handdraw-server/app/membership/inbound/api"
 	membershipdb "github.com/chai-rs/handdraw-server/app/membership/infra/db"
 	membershipservice "github.com/chai-rs/handdraw-server/app/membership/service"
@@ -397,6 +400,7 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 		tokens, err := membershipservice.NewTokens([]byte(strings.Repeat("membership-local-key-", 3)))
 		require.NoError(t, err)
 		members := membershipservice.New(membershipdb.New(), policy, tokens, idemdb.New())
+		discussionapi.New(session, discussionservice.New(discussiondb.New(), documentcodec.Codec{}), cursors).Register(router.Group("/v1"))
 		membershipapi.New(session, members, cursors).Register(router.Group("/v1"))
 		boardapi.New(session, s.boards(), cursors, true).WithSharedBoards(members).Register(router.Group("/v1"))
 	}})

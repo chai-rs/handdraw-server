@@ -121,8 +121,18 @@ func (s *Service) Apply(ctx context.Context, token, user, board string, revision
 			return err
 		}
 
-		if _, err = s.access.Require(ctx, access.Target{BoardID: board}, access.EditContent); err != nil {
+		if d, err = s.access.Require(ctx, access.Target{BoardID: board}, access.EditContent); err != nil {
 			return err
+		}
+
+		before, decodeErr := s.codec.Decode(doc.State, document.Validation{BoardID: board})
+		if decodeErr != nil {
+			return collab.ErrRejected
+		}
+
+		after, decodeErr := s.codec.Decode(candidate, document.Validation{BoardID: board})
+		if decodeErr != nil || after.ValidatePremiumTransition(before, document.Validation{BoardID: board}, d.CanInsertPremium) != nil {
+			return collab.ErrRejected
 		}
 
 		if err = s.documents.Save(ctx, board, revision, candidate); err != nil {

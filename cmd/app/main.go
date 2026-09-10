@@ -25,6 +25,9 @@ import (
 
 	accessdb "github.com/chai-rs/handdraw-server/app/access/infra/db"
 	accessservice "github.com/chai-rs/handdraw-server/app/access/service"
+	discussionapi "github.com/chai-rs/handdraw-server/app/discussion/inbound/api"
+	discussiondb "github.com/chai-rs/handdraw-server/app/discussion/infra/db"
+	discussionservice "github.com/chai-rs/handdraw-server/app/discussion/service"
 	membershipapi "github.com/chai-rs/handdraw-server/app/membership/inbound/api"
 	membershipdb "github.com/chai-rs/handdraw-server/app/membership/infra/db"
 	membershipservice "github.com/chai-rs/handdraw-server/app/membership/service"
@@ -150,6 +153,7 @@ func run(ctx context.Context, config configuration) error {
 	var (
 		collaborationHandler *collabws.Server
 		boardHandler         *boardapi.Handler
+		discussionHandler    *discussionapi.Handler
 		membershipHandler    *membershipapi.Handler
 		workspaceHandler     *workspaceapi.Handler
 		handler              *identityapi.Handler
@@ -169,7 +173,7 @@ func run(ctx context.Context, config configuration) error {
 
 		defer func() { _ = db.Close() }()
 
-		if err := bunx.CheckSchema(ctx, db, 9); err != nil {
+		if err := bunx.CheckSchema(ctx, db, 10); err != nil {
 			return err
 		}
 
@@ -180,7 +184,7 @@ func run(ctx context.Context, config configuration) error {
 
 		identity := identityservice.New(verifier, profiles)
 		handler = identityapi.New(identity)
-		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 9) })}
+		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 10) })}
 
 		if config.Workspace.Enabled {
 			cursors, err := cursor.New([]byte(config.Workspace.CursorKey))
@@ -199,7 +203,7 @@ func run(ctx context.Context, config configuration) error {
 				return err
 			}
 
-			if err = bunx.CheckSchema(ctx, requestDB, 9); err != nil {
+			if err = bunx.CheckSchema(ctx, requestDB, 10); err != nil {
 				return err
 			}
 
@@ -261,6 +265,8 @@ func run(ctx context.Context, config configuration) error {
 
 				boards := boardworkflow.New(boardservice.NewBoardService(boarddb.NewBoardRepository()), boardservice.NewProjectService(boarddb.NewProjectRepository()), documentservice.NewInitialBuilder(documentcodec.Codec{}), access, boardquery.New(), idemdb.New(), jobdb.New())
 
+				discussionHandler = discussionapi.New(session, discussionservice.New(discussiondb.New(), documentcodec.Codec{}), cursors)
+
 				boardHandler = boardapi.New(session, boards, cursors, config.Cleanup.Enabled)
 				if config.Membership.Enabled {
 					members := membershipservice.New(membershipdb.New(), access, membershipTokens, idemdb.New())
@@ -270,7 +276,7 @@ func run(ctx context.Context, config configuration) error {
 			}
 
 			checks = append(checks, fx.NewCheck("workspace_store", func(ctx context.Context) error {
-				if err := bunx.CheckSchema(ctx, requestDB, 9); err != nil {
+				if err := bunx.CheckSchema(ctx, requestDB, 10); err != nil {
 					return err
 				}
 
@@ -290,6 +296,10 @@ func run(ctx context.Context, config configuration) error {
 
 		if boardHandler != nil {
 			boardHandler.Register(router.Group("/v1"))
+		}
+
+		if discussionHandler != nil {
+			discussionHandler.Register(router.Group("/v1"))
 		}
 
 		if membershipHandler != nil {

@@ -48,6 +48,10 @@
     {
       "name": "Collaboration",
       "description": "Online Yjs synchronization and durable save checkpoints."
+    },
+    {
+      "name": "Comments",
+      "description": "Stable board/page/shape/note discussions. Viewer comments do not confer document edit rights."
     }
   ],
   "paths": {
@@ -2182,7 +2186,7 @@
         "operationId": "connectCollaboration",
         "summary": "Open an online collaboration session",
         "security": [],
-        "description": "WebSocket upgrade, enabled by APP_COLLABORATION_ENABLED with board/workspace/identity enabled and explicit APP_COLLABORATION_ORIGINS. Requires a direct or session-pooled PostgreSQL connection. Supabase token is sent in-band, never in the URL. Hocuspocus binary framing: authenticate → protocol-1 client-hello (schema 1) → session-ready → Yjs sync. Five sockets per board and 25 per process; one database-locked runtime. Viewer can read and send presence; Owner/Editor can mutate subject to current entitlement. saved acknowledges a save-checkpoint only after PostgreSQL commit. Disconnect/idle/revocation freezes the client; reopen with a fresh Y.Doc and no offline replay. Cloud idle 7200 seconds, Team 14400, warning 300; heartbeat is not activity. Scalar Try It does not implement this binary protocol. See contracts/control-v1.json and docs/server/durable-collaboration.md.",
+        "description": "WebSocket upgrade, enabled by APP_COLLABORATION_ENABLED with board/workspace/identity enabled and explicit APP_COLLABORATION_ORIGINS. Requires a direct or session-pooled PostgreSQL connection. Supabase token is sent in-band, never in the URL. Hocuspocus binary framing: authenticate \u2192 protocol-1 client-hello (schema 1) \u2192 session-ready \u2192 Yjs sync. Five sockets per board and 25 per process; one database-locked runtime. Viewer can read and send presence; Owner/Editor can mutate subject to current entitlement. saved acknowledges a save-checkpoint only after PostgreSQL commit. Disconnect/idle/revocation freezes the client; reopen with a fresh Y.Doc and no offline replay. Cloud idle 7200 seconds, Team 14400, warning 300; heartbeat is not activity. Scalar Try It does not implement this binary protocol. See contracts/control-v1.json and docs/server/durable-collaboration.md.",
         "parameters": [
           {
             "name": "room",
@@ -2207,6 +2211,401 @@
           },
           "426": {
             "description": "A WebSocket upgrade is required."
+          }
+        }
+      }
+    },
+    "/v1/boards/{board_id}/comment-threads": {
+      "get": {
+        "operationId": "listDiscussionThreads",
+        "summary": "List board discussion threads",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "resolved"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDiscussionThread",
+        "summary": "Create a stable thread and first message",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDiscussion"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/comment-threads/{thread_id}": {
+      "patch": {
+        "operationId": "resolveDiscussionThread",
+        "summary": "Resolve or reopen your thread (or moderate as Owner)",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/thread_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveDiscussion"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/comment-threads/{thread_id}/comments": {
+      "get": {
+        "operationId": "listDiscussionComments",
+        "summary": "List replies and tombstones",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/thread_id"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      },
+      "post": {
+        "operationId": "replyDiscussionThread",
+        "summary": "Reply as the verified actor",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/thread_id"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/comments/{comment_id}": {
+      "patch": {
+        "operationId": "editDiscussionComment",
+        "summary": "Edit your own message",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/comment_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentBody"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDiscussionComment",
+        "summary": "Remove text while retaining attribution",
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/comment_id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "428": {
+            "$ref": "#/components/responses/428"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
           }
         }
       }
@@ -3536,6 +3935,279 @@
           "meta",
           "result"
         ]
+      },
+      "DiscussionAnchor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "board",
+              "page",
+              "shape",
+              "note"
+            ]
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "element_id": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "note_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 240
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "CommentBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "CreateDiscussion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "anchor": {
+            "$ref": "#/components/schemas/DiscussionAnchor"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "anchor",
+          "body"
+        ]
+      },
+      "ResolveDiscussion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DiscussionThread": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "board_id": {
+            "type": "string"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/DiscussionAnchor"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved"
+            ]
+          },
+          "revision": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "board_id",
+          "anchor",
+          "created_by",
+          "status",
+          "revision",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DiscussionComment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "board_id": {
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "author_user_id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "board_id",
+          "thread_id",
+          "author_user_id",
+          "body",
+          "revision",
+          "created_at",
+          "updated_at",
+          "deleted_at"
+        ]
+      },
+      "ThreadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/DiscussionThread"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "ThreadsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscussionThread"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "CommentResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/DiscussionComment"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "CommentsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscussionComment"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
       }
     },
     "parameters": {
@@ -3618,6 +4290,26 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/InvitationID"
+        }
+      },
+      "thread_id": {
+        "name": "thread_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^thr_[0-9A-Za-z]{27}$",
+          "format": "handdraw-resource-id"
+        }
+      },
+      "comment_id": {
+        "name": "comment_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^cmt_[0-9A-Za-z]{27}$",
+          "format": "handdraw-resource-id"
         }
       }
     },

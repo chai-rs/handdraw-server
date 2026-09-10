@@ -90,6 +90,11 @@ func (*repository) Load(ctx context.Context, target model.Target) (model.Facts, 
 		return model.Facts{}, model.ErrUnavailable
 	}
 
+	var personalPremium bool
+	if err = tx.NewRaw("SELECT handdraw.has_personal_premium()").Scan(ctx, &personalPremium); err != nil {
+		return model.Facts{}, model.ErrUnavailable
+	}
+
 	reason := r.Mode
 	if r.Mode == "editable" {
 		reason = "entitled"
@@ -97,7 +102,7 @@ func (*repository) Load(ctx context.Context, target model.Target) (model.Facts, 
 		reason = "entitlement_read_only"
 	}
 
-	return model.Facts{Workspace: workspace.Workspace{ID: r.ID, OwnerID: r.OwnerID, Kind: r.Kind, Name: r.Name, Lifecycle: r.Lifecycle, Revision: r.Revision, AccessRevision: r.AccessRevision, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}, Member: workspace.Member{WorkspaceID: r.ID, UserID: r.UserID, Role: r.Role, Revision: r.MemberRevision}, Entitlement: billing.Entitlement{Plan: r.Plan, Mode: r.Mode, Reason: reason, GraceEndsAt: r.GraceEndsAt, AccessExpiresAt: r.AccessExpiresAt, RetentionEndsAt: r.RetentionEndsAt, QuotaBytes: r.QuotaBytes}, Usage: asset.Usage{UsedBytes: r.UsedBytes, ReservedBytes: r.ReservedBytes, Revision: r.UsageRevision}, BoardStatus: r.BoardStatus, Source: r.Source}, nil
+	return model.Facts{PersonalPremium: personalPremium, Workspace: workspace.Workspace{ID: r.ID, OwnerID: r.OwnerID, Kind: r.Kind, Name: r.Name, Lifecycle: r.Lifecycle, Revision: r.Revision, AccessRevision: r.AccessRevision, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}, Member: workspace.Member{WorkspaceID: r.ID, UserID: r.UserID, Role: r.Role, Revision: r.MemberRevision}, Entitlement: billing.Entitlement{Plan: r.Plan, Mode: r.Mode, Reason: reason, GraceEndsAt: r.GraceEndsAt, AccessExpiresAt: r.AccessExpiresAt, RetentionEndsAt: r.RetentionEndsAt, QuotaBytes: r.QuotaBytes}, Usage: asset.Usage{UsedBytes: r.UsedBytes, ReservedBytes: r.ReservedBytes, Revision: r.UsageRevision}, BoardStatus: r.BoardStatus, Source: r.Source}, nil
 }
 
 // CheckRequestPool rejects privileged, resolver or worker credentials before application routes are enabled.

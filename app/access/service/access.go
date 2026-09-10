@@ -51,7 +51,7 @@ func (s *Service) Resolve(ctx context.Context, target model.Target) (model.Decis
 	read := live && f.Entitlement.Readable()
 	editable := read && f.Entitlement.Editable()
 	caps := model.Capabilities{CanRead: read, CanEditContent: editable && f.Member.Role.CanEditContent(), CanComment: editable, CanExport: read, CanManageGuests: editable && f.Member.Role == workspace.Owner}
-	premium := caps.CanEditContent && ((f.Workspace.Kind == "team" && f.Entitlement.Plan == "team") || (f.Workspace.Kind == "personal" && f.Entitlement.Plan == "cloud" && f.Member.Role == workspace.Owner))
+	premium := caps.CanEditContent && ((f.Source != "board_grant" && f.Workspace.Kind == "team" && f.Entitlement.Plan == "team") || f.PersonalPremium || (f.Workspace.Kind == "personal" && f.Entitlement.Plan == "cloud" && f.Member.Role == workspace.Owner))
 
 	return model.Decision{Facts: f, Capabilities: caps, CanInsertPremium: premium}, nil
 }

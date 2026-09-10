@@ -81,6 +81,7 @@ type Folder struct {
 type Validation struct {
 	BoardID       string          `json:"board_id"`
 	AllowedAssets map[string]bool `json:"-"`
+	PremiumAssets map[string]bool `json:"-"`
 }
 
 // Validate checks supported structure without normalizing or dropping user content.

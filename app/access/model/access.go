@@ -45,12 +45,14 @@ func (t Target) Validate() error {
 
 // Facts combines the minimum public projections needed for policy evaluation.
 type Facts struct {
-	Workspace   workspace.Workspace `json:"workspace"`
-	Member      workspace.Member    `json:"member"`
-	Entitlement billing.Entitlement `json:"entitlement"`
-	Usage       asset.Usage         `json:"usage"`
-	Source      string              `json:"source,omitempty"`
-	BoardStatus string              `json:"board_status,omitempty"`
+	// PersonalPremium is resolved from the actor's own current Cloud subscription.
+	PersonalPremium bool                `json:"-"`
+	Workspace       workspace.Workspace `json:"workspace"`
+	Member          workspace.Member    `json:"member"`
+	Entitlement     billing.Entitlement `json:"entitlement"`
+	Usage           asset.Usage         `json:"usage"`
+	Source          string              `json:"source,omitempty"`
+	BoardStatus     string              `json:"board_status,omitempty"`
 }
 
 // Capabilities are for UI hints; each operation still evaluates current facts.

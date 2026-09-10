@@ -51,6 +51,8 @@ func TestApplyNeverReturnsCandidateAfterCommitFailure(t *testing.T) {
 	codec.EXPECT().Apply([]byte("committed"), []byte("update"), document.Validation{BoardID: boardID}).Return([]byte("candidate"), nil).Once()
 	docs.EXPECT().LockWorkspace(mock.Anything, decision.Facts.Workspace.ID).Return(nil).Once()
 	policy.EXPECT().Require(mock.Anything, target, access.EditContent).Return(decision, nil).Once()
+	codec.EXPECT().Decode([]byte("committed"), document.Validation{BoardID: boardID}).Return(document.Snapshot{}, nil).Once()
+	codec.EXPECT().Decode([]byte("candidate"), document.Validation{BoardID: boardID}).Return(document.Snapshot{}, nil).Once()
 	docs.EXPECT().Save(mock.Anything, boardID, int64(8), []byte("candidate")).Return(nil).Once()
 	result, a, err := service.New(auth, tx, policy, docs, codec).Apply(t.Context(), "token", p.Profile.ID(), boardID, 8, []byte("update"))
 	require.ErrorIs(t, err, uncertain)

@@ -55,7 +55,7 @@ func (s Scope) Validate() error {
 	}
 
 	switch s.ResourcePrefix {
-	case "prj", "brd", "ws", "inv", "usr":
+	case "prj", "brd", "ws", "inv", "usr", "thr", "cmt":
 		return nil
 	default:
 		return ErrInvalid
