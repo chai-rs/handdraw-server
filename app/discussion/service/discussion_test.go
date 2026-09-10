@@ -19,6 +19,7 @@ func TestCreateRejectsMissingTargetBeforeWriting(t *testing.T) {
 	board := "brd_0ujtsYcgvSTl8PAuAdqWYSMnLOv"
 	repository.EXPECT().Lock(mock.Anything, board).Return(nil).Once()
 	repository.EXPECT().Document(mock.Anything, board).Return([]byte("state"), nil).Once()
+	repository.EXPECT().Scope(mock.Anything, board).Return(document.Validation{BoardID: board}, nil).Once()
 	codec.EXPECT().Decode([]byte("state"), document.Validation{BoardID: board}).Return(document.Snapshot{}, nil).Once()
 	_, err := service.New(repository, codec).Create(t.Context(), board, comment.Create{Anchor: comment.Anchor{Kind: "note", NoteID: "note_0ujtsYcgvSTl8PAuAdqWYSMnLOv"}, Body: "question"})
 	require.ErrorIs(t, err, comment.ErrInvalid)

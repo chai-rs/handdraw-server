@@ -25,6 +25,9 @@ import (
 
 	accessdb "github.com/chai-rs/handdraw-server/app/access/infra/db"
 	accessservice "github.com/chai-rs/handdraw-server/app/access/service"
+	assetapi "github.com/chai-rs/handdraw-server/app/asset_management/inbound/api"
+	assetdb "github.com/chai-rs/handdraw-server/app/asset_management/infra/db"
+	assetservice "github.com/chai-rs/handdraw-server/app/asset_management/service"
 	discussionapi "github.com/chai-rs/handdraw-server/app/discussion/inbound/api"
 	discussiondb "github.com/chai-rs/handdraw-server/app/discussion/infra/db"
 	discussionservice "github.com/chai-rs/handdraw-server/app/discussion/service"
@@ -33,8 +36,12 @@ import (
 	membershipservice "github.com/chai-rs/handdraw-server/app/membership/service"
 	onboardingdb "github.com/chai-rs/handdraw-server/app/onboarding/infra/db"
 	onboardingservice "github.com/chai-rs/handdraw-server/app/onboarding/service"
+	transferapi "github.com/chai-rs/handdraw-server/app/transfer/inbound/api"
+	transferdb "github.com/chai-rs/handdraw-server/app/transfer/infra/db"
+	transferservice "github.com/chai-rs/handdraw-server/app/transfer/service"
 	workspaceapi "github.com/chai-rs/handdraw-server/app/workspace_management/inbound/api"
 	workspaceservice "github.com/chai-rs/handdraw-server/app/workspace_management/service"
+	assets3 "github.com/chai-rs/handdraw-server/internal/asset/infra/s3"
 	idemdb "github.com/chai-rs/handdraw-server/internal/idempotency/infra/db"
 	workspacedb "github.com/chai-rs/handdraw-server/internal/workspace/infra/db"
 	workspacedomain "github.com/chai-rs/handdraw-server/internal/workspace/service"
@@ -61,6 +68,8 @@ type configuration struct {
 	Cleanup       cleanupConfig
 	Membership    membershipConfig
 	Collaboration collaborationConfig
+	Asset         assetConfig
+	Transfer      transferConfig
 }
 
 func main() {
@@ -79,6 +88,16 @@ func main() {
 		logx.Error().Err(err).Msg("handdraw-server stopped")
 		os.Exit(1)
 	}
+}
+
+type transferConfig struct {
+	Enabled     bool   `default:"false"`
+	DatabaseURL string `split_words:"true" json:"-"`
+}
+
+type assetConfig struct {
+	Enabled bool `default:"false"`
+	S3      assets3.Config
 }
 
 type identityConfig struct {
@@ -115,6 +134,31 @@ type workspaceConfig struct {
 }
 
 func run(ctx context.Context, config configuration) error {
+	if config.Transfer.Enabled && !config.Asset.Enabled {
+		return errors.New("transfers require private assets")
+	}
+
+	var storage *assets3.Storage
+
+	if config.Asset.Enabled {
+		if !config.Board.Enabled || !config.Cleanup.Enabled {
+			return errors.New("assets require board routes and cleanup worker")
+		}
+
+		var err error
+
+		storage, err = assets3.New(config.Asset.S3)
+		if err != nil {
+			return err
+		}
+
+		if err = storage.Check(ctx); err != nil {
+			return err
+		}
+
+		config.HTTP.BodyLimit = 64_000_000
+	}
+
 	if config.Collaboration.Enabled && !config.Board.Enabled {
 		return errors.New("collaboration requires board routes")
 	}
@@ -153,6 +197,8 @@ func run(ctx context.Context, config configuration) error {
 	var (
 		collaborationHandler *collabws.Server
 		boardHandler         *boardapi.Handler
+		transferHandler      *transferapi.Handler
+		assetHandler         *assetapi.Handler
 		discussionHandler    *discussionapi.Handler
 		membershipHandler    *membershipapi.Handler
 		workspaceHandler     *workspaceapi.Handler
@@ -173,7 +219,7 @@ func run(ctx context.Context, config configuration) error {
 
 		defer func() { _ = db.Close() }()
 
-		if err := bunx.CheckSchema(ctx, db, 10); err != nil {
+		if err := bunx.CheckSchema(ctx, db, 12); err != nil {
 			return err
 		}
 
@@ -184,7 +230,7 @@ func run(ctx context.Context, config configuration) error {
 
 		identity := identityservice.New(verifier, profiles)
 		handler = identityapi.New(identity)
-		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 10) })}
+		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 12) })}
 
 		if config.Workspace.Enabled {
 			cursors, err := cursor.New([]byte(config.Workspace.CursorKey))
@@ -203,7 +249,7 @@ func run(ctx context.Context, config configuration) error {
 				return err
 			}
 
-			if err = bunx.CheckSchema(ctx, requestDB, 10); err != nil {
+			if err = bunx.CheckSchema(ctx, requestDB, 12); err != nil {
 				return err
 			}
 
@@ -225,8 +271,21 @@ func run(ctx context.Context, config configuration) error {
 						return err
 					}
 
-					if err = bunx.CheckSchema(ctx, cleanupDB, 9); err != nil {
+					if err = bunx.CheckSchema(ctx, cleanupDB, 12); err != nil {
 						return err
+					}
+
+					if storage != nil {
+						assetCtx, assetCancel := context.WithCancel(ctx)
+
+						assetDone := make(chan struct{})
+						go func() {
+							defer close(assetDone)
+
+							jobservice.NewWorker(assetdb.NewWorker(cleanupDB, storage)).Run(assetCtx, func(err error) { logx.Error().Err(err).Msg("asset cleanup pass failed") })
+						}()
+
+						defer func() { assetCancel(); <-assetDone }()
 					}
 
 					checks = append(checks, fx.NewCheck("cleanup_store", worker.Check))
@@ -265,9 +324,40 @@ func run(ctx context.Context, config configuration) error {
 
 				boards := boardworkflow.New(boardservice.NewBoardService(boarddb.NewBoardRepository()), boardservice.NewProjectService(boarddb.NewProjectRepository()), documentservice.NewInitialBuilder(documentcodec.Codec{}), access, boardquery.New(), idemdb.New(), jobdb.New())
 
+				if config.Transfer.Enabled {
+					transferDB, err := (bunx.PGConfig{URL: config.Transfer.DatabaseURL}).New(ctx)
+					if err != nil {
+						return err
+					}
+					defer func() { _ = transferDB.Close() }()
+
+					repo := transferdb.New(transferDB)
+					if err = repo.Check(ctx); err != nil {
+						return err
+					}
+
+					checks = append(checks, fx.NewCheck("transfer_store", repo.Check))
+					transferCtx, transferCancel := context.WithCancel(ctx)
+
+					transferDone := make(chan struct{})
+					go func() {
+						defer close(transferDone)
+
+						jobservice.NewWorker(transferservice.New(repo, storage, documentcodec.Codec{}, nil)).WithTimeout(90*time.Second).Run(transferCtx, func(err error) { logx.Error().Msg("transfer pass failed") })
+					}()
+
+					defer func() { transferCancel(); <-transferDone }()
+
+					transferHandler = transferapi.New(session, transferservice.New(transferdb.New(nil), storage, documentcodec.Codec{}, idemdb.New()))
+				}
+
+				if storage != nil {
+					assetHandler = assetapi.New(session, assetservice.New(assetdb.New(), storage, idemdb.New()))
+				}
+
 				discussionHandler = discussionapi.New(session, discussionservice.New(discussiondb.New(), documentcodec.Codec{}), cursors)
 
-				boardHandler = boardapi.New(session, boards, cursors, config.Cleanup.Enabled)
+				boardHandler = boardapi.New(session, boards, cursors, config.Cleanup.Enabled).WithImports(config.Transfer.Enabled)
 				if config.Membership.Enabled {
 					members := membershipservice.New(membershipdb.New(), access, membershipTokens, idemdb.New())
 					membershipHandler = membershipapi.New(session, members, cursors)
@@ -276,7 +366,7 @@ func run(ctx context.Context, config configuration) error {
 			}
 
 			checks = append(checks, fx.NewCheck("workspace_store", func(ctx context.Context) error {
-				if err := bunx.CheckSchema(ctx, requestDB, 10); err != nil {
+				if err := bunx.CheckSchema(ctx, requestDB, 12); err != nil {
 					return err
 				}
 
@@ -296,6 +386,14 @@ func run(ctx context.Context, config configuration) error {
 
 		if boardHandler != nil {
 			boardHandler.Register(router.Group("/v1"))
+		}
+
+		if transferHandler != nil {
+			transferHandler.Register(router.Group("/v1"))
+		}
+
+		if assetHandler != nil {
+			assetHandler.Register(router.Group("/v1"))
 		}
 
 		if discussionHandler != nil {

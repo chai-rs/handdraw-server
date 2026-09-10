@@ -37,7 +37,7 @@ func (p CreateBoard) Validate() error {
 		return err
 	}
 
-	if p.Initialization != "empty" && p.Initialization != "get_started" {
+	if p.Initialization != "empty" && p.Initialization != "get_started" && p.Initialization != "import" {
 		return ErrImportUnavailable
 	}
 
@@ -54,9 +54,10 @@ func (p CreateBoard) Validate() error {
 
 // BoardView joins metadata with the document schema and actor's current capabilities.
 type BoardView struct {
-	Board         board.Board         `json:"-"`
-	SchemaVersion int                 `json:"document_schema_version"`
-	Capabilities  access.Capabilities `json:"capabilities"`
+	CanInsertPremium bool                `json:"can_insert_premium"`
+	Board            board.Board         `json:"-"`
+	SchemaVersion    int                 `json:"document_schema_version"`
+	Capabilities     access.Capabilities `json:"capabilities"`
 }
 
 // ProjectScope identifies a project's immutable parent, retaining tombstone metadata for repeated deletion.

@@ -104,7 +104,7 @@ func (s Scene) Validate(scope Validation) error {
 	}
 
 	for file, asset := range s.Files {
-		if file == "" || resourceid.Validate(asset.AssetID, AssetIDPrefix) != nil || !scope.AllowedAssets[asset.AssetID] || !oneOf(asset.MIMEType, "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml") {
+		if (scope.AssetMIMEs != nil && scope.AssetMIMEs[asset.AssetID] != asset.MIMEType) || file == "" || resourceid.Validate(asset.AssetID, AssetIDPrefix) != nil || !scope.AllowedAssets[asset.AssetID] || !oneOf(asset.MIMEType, "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml") {
 			return ErrInvalidDocument
 		}
 	}

@@ -79,9 +79,11 @@ type Folder struct {
 
 // Validation binds content to its board and assets authorized by the application workflow.
 type Validation struct {
-	BoardID       string          `json:"board_id"`
-	AllowedAssets map[string]bool `json:"-"`
-	PremiumAssets map[string]bool `json:"-"`
+	BoardID       string            `json:"board_id"`
+	AllowedAssets map[string]bool   `json:"-"`
+	PremiumAssets map[string]bool   `json:"-"`
+	AssetDigests  map[string]string `json:"-"`
+	AssetMIMEs    map[string]string `json:"-"`
 }
 
 // Validate checks supported structure without normalizing or dropping user content.

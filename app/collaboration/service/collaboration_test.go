@@ -48,6 +48,7 @@ func TestApplyNeverReturnsCandidateAfterCommitFailure(t *testing.T) {
 	}).Once()
 	policy.EXPECT().Require(mock.Anything, target, access.ReadContent).Return(decision, nil).Once()
 	docs.EXPECT().Load(mock.Anything, boardID).Return(collab.Document{State: []byte("committed"), Revision: 8}, nil).Once()
+	docs.EXPECT().Scope(mock.Anything, boardID).Return(document.Validation{BoardID: boardID}, nil).Once()
 	codec.EXPECT().Apply([]byte("committed"), []byte("update"), document.Validation{BoardID: boardID}).Return([]byte("candidate"), nil).Once()
 	docs.EXPECT().LockWorkspace(mock.Anything, decision.Facts.Workspace.ID).Return(nil).Once()
 	policy.EXPECT().Require(mock.Anything, target, access.EditContent).Return(decision, nil).Once()

@@ -47,6 +47,13 @@ func (s Snapshot) ValidatePremiumTransition(before Snapshot, scope Validation, a
 				return ErrPremium
 			}
 
+			if currentCatalog != "" && scope.AssetDigests != nil && scope.AssetMIMEs[currentAsset] == "image/svg+xml" {
+				digest, _ := CatalogDigest(currentCatalog)
+				if scope.AssetDigests[currentAsset] != digest {
+					return ErrPremium
+				}
+			}
+
 			premium := currentCatalog != "" || scope.PremiumAssets[currentAsset]
 
 			existing := prior != nil && prior["isDeleted"] != true && currentCatalog == oldCatalog && currentAsset == oldAsset
@@ -81,4 +88,15 @@ func catalogID(e map[string]any) (string, bool) {
 func elementAsset(s Scene, e map[string]any) string {
 	f, _ := e["fileId"].(string)
 	return s.Files[f].AssetID
+}
+
+// IsPremiumDigest recognizes pinned catalog bytes even after client metadata is removed.
+func IsPremiumDigest(digest string) bool {
+	for _, known := range premiumCatalog {
+		if digest == known {
+			return true
+		}
+	}
+
+	return false
 }

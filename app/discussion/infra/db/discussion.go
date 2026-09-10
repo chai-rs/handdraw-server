@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 
+	assetdb "github.com/chai-rs/handdraw-server/app/asset_management/infra/db"
 	"github.com/chai-rs/handdraw-server/app/discussion/model"
 	comment "github.com/chai-rs/handdraw-server/internal/comment/model"
+	document "github.com/chai-rs/handdraw-server/internal/document/model"
 	"github.com/chai-rs/handdraw-server/pkg/rlstx"
 	"github.com/uptrace/bun/driver/pgdriver"
 )
@@ -154,4 +156,9 @@ func (*repository) Resolve(ctx context.Context, t, status string, revision int64
 
 func (*repository) Edit(ctx context.Context, c, body string, remove bool, revision int64) error {
 	return exec(ctx, "SELECT handdraw.edit_comment(?,?,?,?)", c, body, remove, revision)
+}
+
+// Scope reads current asset provenance for anchor validation.
+func (*repository) Scope(ctx context.Context, board string) (document.Validation, error) {
+	return assetdb.ContentScope(ctx, board)
 }

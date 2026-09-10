@@ -69,7 +69,10 @@ func (s *accessSuite) TestDiscussionAnchorAndCleanup() {
 	require.NotContains(t, string(raw), "workspace_id")
 	status, body, _ = request(t, "DELETE", base+"/v1/boards/"+board, token(f.owner), "", `"1"`)
 	require.Equal(t, 202, status, body)
-	_, err = s.cleanup.ExecContext(t.Context(), "SELECT handdraw.run_board_cleanup()")
+	for range 10 {
+		_, err = s.cleanup.ExecContext(t.Context(), "SELECT handdraw.run_board_cleanup()")
+		require.NoError(t, err)
+	}
 	require.NoError(t, err)
 	var count int
 	require.NoError(t, s.admin.NewRaw("SELECT count(*) FROM handdraw.comment_threads WHERE board_id=?", board).Scan(t.Context(), &count))

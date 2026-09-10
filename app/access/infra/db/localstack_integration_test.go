@@ -9,9 +9,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
+
+	assetdb "github.com/chai-rs/handdraw-server/app/asset_management/infra/db"
 
 	boardinput "github.com/chai-rs/handdraw-server/app/board_management/model"
 	jobdb "github.com/chai-rs/handdraw-server/internal/job/infra/db"
@@ -104,12 +107,15 @@ func TestLocalCloudStack(t *testing.T) {
 	ctx, cancel := signal.NotifyContext(t.Context(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	workerCtx, stopWorker := context.WithCancel(ctx)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		jobservice.NewWorker(jobdb.NewWorker(s.cleanup)).Run(workerCtx, func(err error) { t.Log(err) })
-	}()
-	defer func() { stopWorker(); <-done }()
+	var workers sync.WaitGroup
+	for _, worker := range []*jobservice.Worker{
+		jobservice.NewWorker(jobdb.NewWorker(s.cleanup)),
+		jobservice.NewWorker(assetdb.NewWorker(s.cleanup, s.assets)),
+		jobservice.NewWorker(s.transferWorker()).WithTimeout(90 * time.Second),
+	} {
+		workers.Go(func() { worker.Run(workerCtx, func(err error) { t.Log(err) }) })
+	}
+	defer func() { stopWorker(); workers.Wait() }()
 	fmt.Println("Local cloud fixture ready: /private/tmp/handdraw-localstack.json (disposable accounts; no live Supabase)")
 	select {
 	case <-ctx.Done():

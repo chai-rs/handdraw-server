@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"errors"
 
+	assetdb "github.com/chai-rs/handdraw-server/app/asset_management/infra/db"
 	appmodel "github.com/chai-rs/handdraw-server/app/collaboration/model"
 	"github.com/chai-rs/handdraw-server/internal/collaboration/model"
+	document "github.com/chai-rs/handdraw-server/internal/document/model"
 	"github.com/chai-rs/handdraw-server/pkg/rlstx"
 )
 
@@ -78,4 +80,9 @@ func (*documents) Save(ctx context.Context, board string, revision int64, state 
 	}
 
 	return nil
+}
+
+// Scope resolves immutable asset provenance inside the actor transaction.
+func (*documents) Scope(ctx context.Context, board string) (document.Validation, error) {
+	return assetdb.ContentScope(ctx, board)
 }

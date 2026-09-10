@@ -49,7 +49,7 @@ test-migrations:
 
 # Database suites use reviewed migrations in disposable PostgreSQL containers.
 test-database:
-	go test -tags=integration,migrationtest -race -count=1 -timeout=5m ./internal/migrationtest ./internal/board/infra/db ./internal/identity/infra/db ./app/access/infra/db
+	go test -tags=integration,migrationtest -race -count=1 -timeout=5m ./internal/migrationtest ./internal/board/infra/db ./internal/identity/infra/db ./app/access/infra/db ./internal/asset/infra/s3
 
 # The real editor and provider live in the adjacent client checkout.
 CLIENT_DIR ?= ../handdraw-client

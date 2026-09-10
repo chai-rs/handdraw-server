@@ -5,12 +5,14 @@ import (
 	"context"
 
 	comment "github.com/chai-rs/handdraw-server/internal/comment/model"
+	document "github.com/chai-rs/handdraw-server/internal/document/model"
 )
 
 // Repository requires an actor-scoped transaction for every operation.
 //
 //mockery:generate: true
 type Repository interface {
+	Scope(context.Context, string) (document.Validation, error)
 	Lock(context.Context, string) error
 	Document(context.Context, string) ([]byte, error)
 	Thread(context.Context, string) (comment.Thread, error)

@@ -104,7 +104,12 @@ func (s *Service) Apply(ctx context.Context, token, user, board string, revision
 			return collab.ErrConflict
 		}
 
-		candidate, err := s.codec.Apply(doc.State, update, document.Validation{BoardID: board})
+		scope, err := s.documents.Scope(ctx, board)
+		if err != nil {
+			return err
+		}
+
+		candidate, err := s.codec.Apply(doc.State, update, scope)
 		if err != nil {
 			return collab.ErrRejected
 		}
@@ -125,13 +130,13 @@ func (s *Service) Apply(ctx context.Context, token, user, board string, revision
 			return err
 		}
 
-		before, decodeErr := s.codec.Decode(doc.State, document.Validation{BoardID: board})
+		before, decodeErr := s.codec.Decode(doc.State, scope)
 		if decodeErr != nil {
 			return collab.ErrRejected
 		}
 
-		after, decodeErr := s.codec.Decode(candidate, document.Validation{BoardID: board})
-		if decodeErr != nil || after.ValidatePremiumTransition(before, document.Validation{BoardID: board}, d.CanInsertPremium) != nil {
+		after, decodeErr := s.codec.Decode(candidate, scope)
+		if decodeErr != nil || after.ValidatePremiumTransition(before, scope, d.CanInsertPremium) != nil {
 			return collab.ErrRejected
 		}
 

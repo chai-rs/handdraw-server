@@ -52,6 +52,14 @@
     {
       "name": "Comments",
       "description": "Stable board/page/shape/note discussions. Viewer comments do not confer document edit rights."
+    },
+    {
+      "name": "Assets",
+      "description": "Private Garage/S3 assets, quota reservations and verified immutable publication."
+    },
+    {
+      "name": "Transfers",
+      "description": "Leased imports and snapshot exports using private Garage artifacts."
     }
   ],
   "paths": {
@@ -2609,6 +2617,431 @@
           }
         }
       }
+    },
+    "/v1/boards/{board_id}/assets": {
+      "post": {
+        "operationId": "reserveAsset",
+        "summary": "Reserve quota for a private upload",
+        "tags": [
+          "Assets"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveAsset"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{asset_id}/upload": {
+      "put": {
+        "operationId": "uploadAsset",
+        "summary": "Upload exact reserved bytes through the authenticated proxy",
+        "tags": [
+          "Assets"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/asset_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{asset_id}/complete": {
+      "post": {
+        "operationId": "completeAsset",
+        "summary": "Verify immutable final bytes and account once",
+        "tags": [
+          "Assets"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/asset_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/v1/assets/{asset_id}/download": {
+      "get": {
+        "operationId": "downloadAsset",
+        "summary": "Download after current board authorization",
+        "tags": [
+          "Assets"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/asset_id"
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "One bytes range; multipart ranges return 416."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified private bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          },
+          "206": {
+            "description": "Verified private bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "Unsatisfiable or multipart byte range"
+          }
+        }
+      }
+    },
+    "/v1/boards/{board_id}/imports": {
+      "post": {
+        "operationId": "importBoard",
+        "summary": "Queue a validated import into an initializing board",
+        "tags": [
+          "Transfers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/boards/{board_id}/exports": {
+      "post": {
+        "operationId": "exportBoard",
+        "summary": "Queue an immutable snapshot export",
+        "tags": [
+          "Transfers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/board_id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "getTransferJob",
+        "summary": "Read an authorized transfer job",
+        "tags": [
+          "Transfers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/job_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/download": {
+      "get": {
+        "operationId": "getTransferDownload",
+        "summary": "Resolve an authenticated download path",
+        "tags": [
+          "Transfers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/job_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferDownloadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2910,6 +3343,9 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "can_insert_premium": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3015,7 +3451,8 @@
             "type": "string",
             "enum": [
               "empty",
-              "get_started"
+              "get_started",
+              "import"
             ]
           }
         },
@@ -4208,6 +4645,282 @@
           "meta",
           "result"
         ]
+      },
+      "Asset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "board_id",
+          "uploaded_by",
+          "purpose",
+          "status",
+          "size_bytes",
+          "mime_type",
+          "sha256",
+          "premium",
+          "expires_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "board_id": {
+            "type": "string"
+          },
+          "uploaded_by": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "attachment",
+              "import_source",
+              "export_artifact"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "available",
+              "deleting",
+              "deleted"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "premium": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReserveAsset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "purpose",
+          "size_bytes",
+          "mime_type",
+          "sha256"
+        ],
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "attachment",
+              "import_source"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 64000000
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "AssetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Asset"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "TransferJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "board_id",
+          "kind",
+          "status",
+          "attempts",
+          "result_asset_id",
+          "error_code"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "board_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "import",
+              "export"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "result_asset_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "TransferJobResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/TransferJob"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "ImportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_asset_id",
+          "format",
+          "target_schema_version"
+        ],
+        "properties": {
+          "source_asset_id": {
+            "type": "string",
+            "pattern": "^ast_[0-9A-Za-z]{27}$"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "handdraw",
+              "excalidraw"
+            ]
+          },
+          "target_schema_version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          }
+        }
+      },
+      "ExportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "format",
+          "include_assets"
+        ],
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "handdraw",
+              "excalidraw"
+            ]
+          },
+          "include_assets": {
+            "type": "boolean",
+            "description": "Use true for a portable archive that can be imported independently."
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Required for Excalidraw, which exports this page without notes."
+          }
+        }
+      },
+      "TransferDownloadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "type": "object",
+            "required": [
+              "download_path"
+            ],
+            "properties": {
+              "download_path": {
+                "type": "string",
+                "description": "Same-origin API path requiring a current bearer token; expires with the private artifact after one hour."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
       }
     },
     "parameters": {
@@ -4309,6 +5022,26 @@
         "schema": {
           "type": "string",
           "pattern": "^cmt_[0-9A-Za-z]{27}$",
+          "format": "handdraw-resource-id"
+        }
+      },
+      "asset_id": {
+        "name": "asset_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^ast_[0-9A-Za-z]{27}$",
+          "format": "handdraw-resource-id"
+        }
+      },
+      "job_id": {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^job_[0-9A-Za-z]{27}$",
           "format": "handdraw-resource-id"
         }
       }

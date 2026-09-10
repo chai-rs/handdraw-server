@@ -40,11 +40,12 @@ type SharedBoards interface {
 
 // Handler serializes workflow results only after their request transaction commits.
 type Handler struct {
-	session  Session
-	service  *service.Service
-	cursors  *cursor.Codec
-	shared   SharedBoards
-	deletion bool
+	importsEnabled bool
+	session        Session
+	service        *service.Service
+	cursors        *cursor.Codec
+	shared         SharedBoards
+	deletion       bool
 }
 
 // New wires the API; deletion is enabled only alongside a configured cleanup worker.
@@ -77,16 +78,17 @@ func (h *Handler) Register(r fiber.Router) {
 }
 
 type boardResponse struct {
-	ID            string              `json:"id"`
-	WorkspaceID   string              `json:"workspace_id"`
-	ProjectID     *string             `json:"project_id"`
-	Name          string              `json:"name"`
-	Status        board.Status        `json:"status"`
-	Revision      int64               `json:"revision,string"`
-	SchemaVersion int                 `json:"document_schema_version"`
-	Capabilities  access.Capabilities `json:"capabilities"`
-	CreatedAt     time.Time           `json:"created_at"`
-	UpdatedAt     time.Time           `json:"updated_at"`
+	CanInsertPremium bool                `json:"can_insert_premium"`
+	ID               string              `json:"id"`
+	WorkspaceID      string              `json:"workspace_id"`
+	ProjectID        *string             `json:"project_id"`
+	Name             string              `json:"name"`
+	Status           board.Status        `json:"status"`
+	Revision         int64               `json:"revision,string"`
+	SchemaVersion    int                 `json:"document_schema_version"`
+	Capabilities     access.Capabilities `json:"capabilities"`
+	CreatedAt        time.Time           `json:"created_at"`
+	UpdatedAt        time.Time           `json:"updated_at"`
 }
 type projectResponse struct {
 	ID          string    `json:"id"`
@@ -107,7 +109,7 @@ func boardView(v model.BoardView) boardResponse {
 		project = &p
 	}
 
-	return boardResponse{ID: b.ID(), WorkspaceID: b.WorkspaceID(), ProjectID: project, Name: b.Name(), Status: b.Status(), Revision: b.Revision(), SchemaVersion: v.SchemaVersion, Capabilities: v.Capabilities, CreatedAt: b.CreatedAt(), UpdatedAt: b.UpdatedAt()}
+	return boardResponse{ID: b.ID(), WorkspaceID: b.WorkspaceID(), ProjectID: project, Name: b.Name(), Status: b.Status(), Revision: b.Revision(), SchemaVersion: v.SchemaVersion, Capabilities: v.Capabilities, CanInsertPremium: v.CanInsertPremium, CreatedAt: b.CreatedAt(), UpdatedAt: b.UpdatedAt()}
 }
 
 func projectView(p board.Project) projectResponse {
@@ -252,6 +254,10 @@ func (h *Handler) CreateBoard(c fiber.Ctx) error {
 		}
 
 		p := model.CreateBoard{Name: body.Name, Initialization: body.Initialization}
+		if p.Initialization == "import" && !h.importsEnabled {
+			return model.ErrImportUnavailable
+		}
+
 		if string(body.Project) != "null" {
 			var id string
 			if json.Unmarshal(body.Project, &id) != nil || id == "" {
@@ -644,3 +650,6 @@ func (h *Handler) SharedBoards(c fiber.Ctx) error {
 
 	return fx.Paginated(c, items, fx.Pagination{NextCursor: next})
 }
+
+// WithImports enables initializing-board creation only when the transfer worker is configured.
+func (h *Handler) WithImports(enabled bool) *Handler { h.importsEnabled = enabled; return h }

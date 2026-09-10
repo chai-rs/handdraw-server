@@ -141,7 +141,7 @@ func lockBoard(ctx context.Context, tx bun.Tx, workspace, id string, expected in
 		return boardRow{}, model.ErrRevisionConflict
 	}
 
-	if row.Status != model.StatusActive {
+	if row.Status != model.StatusActive && row.Status != model.StatusInitializing {
 		return boardRow{}, model.ErrInvalidState
 	}
 
@@ -164,6 +164,10 @@ func (r *boardRepository) Update(ctx context.Context, workspace, id string, patc
 	row, err := lockBoard(ctx, tx, workspace, id, expected)
 	if err != nil {
 		return model.Board{}, persistenceError(err)
+	}
+
+	if row.Status != model.StatusActive {
+		return model.Board{}, model.ErrInvalidState
 	}
 
 	q := tx.NewUpdate().Model(&row).Set("metadata_revision = metadata_revision + 1").Set("updated_at = clock_timestamp()")

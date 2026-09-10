@@ -67,7 +67,7 @@ func (s *Service) Require(ctx context.Context, target model.Target, action model
 
 	switch action {
 	case model.ReadMetadata:
-		allowed = target.BoardID == "" || d.Capabilities.CanRead
+		allowed = target.BoardID == "" || d.Capabilities.CanRead || (d.Facts.BoardStatus == "initializing" && d.Facts.Source != "board_grant" && d.Facts.Entitlement.Editable() && d.Facts.Member.Role.CanEditContent())
 	case model.ReadContent:
 		allowed = d.Capabilities.CanRead
 	case model.EditContent:

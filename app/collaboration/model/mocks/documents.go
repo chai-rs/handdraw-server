@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/chai-rs/handdraw-server/internal/collaboration/model"
+	model0 "github.com/chai-rs/handdraw-server/internal/document/model"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -226,6 +227,72 @@ func (_c *MockDocuments_Save_Call) Return(err error) *MockDocuments_Save_Call {
 }
 
 func (_c *MockDocuments_Save_Call) RunAndReturn(run func(context1 context.Context, s string, n int64, bytes []byte) error) *MockDocuments_Save_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Scope provides a mock function for the type MockDocuments
+func (_mock *MockDocuments) Scope(context1 context.Context, s string) (model0.Validation, error) {
+	ret := _mock.Called(context1, s)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Scope")
+	}
+
+	var r0 model0.Validation
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model0.Validation, error)); ok {
+		return returnFunc(context1, s)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model0.Validation); ok {
+		r0 = returnFunc(context1, s)
+	} else {
+		r0 = ret.Get(0).(model0.Validation)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(context1, s)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDocuments_Scope_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Scope'
+type MockDocuments_Scope_Call struct {
+	*mock.Call
+}
+
+// Scope is a helper method to define mock.On call
+//   - context1 context.Context
+//   - s string
+func (_e *MockDocuments_Expecter) Scope(context1 any, s any) *MockDocuments_Scope_Call {
+	return &MockDocuments_Scope_Call{Call: _e.mock.On("Scope", context1, s)}
+}
+
+func (_c *MockDocuments_Scope_Call) Run(run func(context1 context.Context, s string)) *MockDocuments_Scope_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDocuments_Scope_Call) Return(validation model0.Validation, err error) *MockDocuments_Scope_Call {
+	_c.Call.Return(validation, err)
+	return _c
+}
+
+func (_c *MockDocuments_Scope_Call) RunAndReturn(run func(context1 context.Context, s string) (model0.Validation, error)) *MockDocuments_Scope_Call {
 	_c.Call.Return(run)
 	return _c
 }

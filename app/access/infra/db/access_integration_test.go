@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	assetapi "github.com/chai-rs/handdraw-server/app/asset_management/inbound/api"
+	assetdb "github.com/chai-rs/handdraw-server/app/asset_management/infra/db"
+	assetservice "github.com/chai-rs/handdraw-server/app/asset_management/service"
 	boardapi "github.com/chai-rs/handdraw-server/app/board_management/inbound/api"
 	boardquery "github.com/chai-rs/handdraw-server/app/board_management/infra/db"
 	boardinput "github.com/chai-rs/handdraw-server/app/board_management/model"
@@ -28,6 +31,10 @@ import (
 	membershipapi "github.com/chai-rs/handdraw-server/app/membership/inbound/api"
 	membershipdb "github.com/chai-rs/handdraw-server/app/membership/infra/db"
 	membershipservice "github.com/chai-rs/handdraw-server/app/membership/service"
+	transferapi "github.com/chai-rs/handdraw-server/app/transfer/inbound/api"
+	transferdb "github.com/chai-rs/handdraw-server/app/transfer/infra/db"
+	transferservice "github.com/chai-rs/handdraw-server/app/transfer/service"
+	assets3 "github.com/chai-rs/handdraw-server/internal/asset/infra/s3"
 	boardservice "github.com/chai-rs/handdraw-server/internal/board/service"
 	collabws "github.com/chai-rs/handdraw-server/internal/collaboration/inbound/ws"
 	controlcodec "github.com/chai-rs/handdraw-server/internal/collaboration/infra/protocol"
@@ -76,8 +83,9 @@ import (
 var authFixture string
 
 type accessSuite struct {
+	assets *assets3.Storage
 	suite.Suite
-	admin, request, resolver, cleanup *bun.DB
+	admin, request, resolver, cleanup, transfer *bun.DB
 }
 type (
 	user     struct{ id, subject string }
@@ -92,6 +100,10 @@ func TestAccessSuite(t *testing.T) { suite.Run(t, new(accessSuite)) }
 // SetupSuite applies production migrations after only an external Auth stand-in, then separates runtime credentials.
 func (s *accessSuite) SetupSuite() {
 	t := s.T()
+	garageConfig := testsupport.Garage(t)
+	var storageErr error
+	s.assets, storageErr = assets3.New(garageConfig)
+	require.NoError(t, storageErr)
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	defer cancel()
 	database, err := postgres.Run(ctx, "postgres:17", postgres.WithDatabase("handdraw_access_test"), postgres.WithUsername("access_admin"), postgres.WithPassword("local_test_only"), postgres.BasicWaitStrategies(), testcontainers.WithHostConfigModifier(func(c *container.HostConfig) {
@@ -110,7 +122,7 @@ func (s *accessSuite) SetupSuite() {
 	_, err = s.admin.ExecContext(ctx, authFixture)
 	require.NoError(t, err)
 	testsupport.Migrate(t, dsn, "up")
-	for role, capability := range map[string]string{"access_request": "handdraw_request", "access_resolver": "handdraw_identity_resolver", "access_cleanup": "handdraw_cleanup_worker"} {
+	for role, capability := range map[string]string{"access_request": "handdraw_request", "access_resolver": "handdraw_identity_resolver", "access_cleanup": "handdraw_cleanup_worker", "access_transfer": "handdraw_transfer_worker"} {
 		_, err = s.admin.ExecContext(ctx, "CREATE ROLE ? LOGIN PASSWORD 'local_test_only' IN ROLE ?", bun.Ident(role), bun.Ident(capability))
 		require.NoError(t, err)
 		u, err := url.Parse(dsn)
@@ -119,6 +131,8 @@ func (s *accessSuite) SetupSuite() {
 		db := s.open(t, u.String())
 		if role == "access_request" {
 			s.request = db
+		} else if role == "access_transfer" {
+			s.transfer = db
 		} else if role == "access_cleanup" {
 			s.cleanup = db
 		} else {
@@ -376,7 +390,7 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 	require.NoError(t, err)
 	address := listener.Addr().String()
 	require.NoError(t, listener.Close())
-	httpConfig := fx.Config{Address: address}
+	httpConfig := fx.Config{Address: address, BodyLimit: 64_000_000}
 	if len(accounts) > 0 {
 		httpConfig.CORS = fx.CORSConfig{Enabled: true, AllowOrigins: []string{"http://127.0.0.1:5175"}}
 	}
@@ -400,9 +414,12 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 		tokens, err := membershipservice.NewTokens([]byte(strings.Repeat("membership-local-key-", 3)))
 		require.NoError(t, err)
 		members := membershipservice.New(membershipdb.New(), policy, tokens, idemdb.New())
+		storage := s.assets
+		transferapi.New(session, transferservice.New(transferdb.New(nil), storage, documentcodec.Codec{}, idemdb.New())).Register(router.Group("/v1"))
+		assetapi.New(session, assetservice.New(assetdb.New(), storage, idemdb.New())).Register(router.Group("/v1"))
 		discussionapi.New(session, discussionservice.New(discussiondb.New(), documentcodec.Codec{}), cursors).Register(router.Group("/v1"))
 		membershipapi.New(session, members, cursors).Register(router.Group("/v1"))
-		boardapi.New(session, s.boards(), cursors, true).WithSharedBoards(members).Register(router.Group("/v1"))
+		boardapi.New(session, s.boards(), cursors, true).WithImports(true).WithSharedBoards(members).Register(router.Group("/v1"))
 	}})
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -721,9 +738,13 @@ func (s *accessSuite) TestBoardHTTPLifecycleAndAtomicDocument() {
 	worker := jobdb.NewWorker(s.cleanup)
 	require.NoError(t, worker.Check(t.Context()))
 	require.Error(t, jobdb.NewWorker(s.request).Check(t.Context()))
-	n, err := worker.RunOne(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, 1, n)
+	for range 20 {
+		n, err := worker.RunOne(t.Context())
+		require.NoError(t, err)
+		if n == 0 {
+			break
+		}
+	}
 	status, data, _ = request(t, "DELETE", base+"/v1/boards/"+b, token(f.editor), "", `"2"`)
 	require.Equal(t, 202, status, data)
 	require.Equal(t, "succeeded", data["result"].(map[string]any)["status"])
@@ -784,7 +805,7 @@ func (s *accessSuite) TestBoardHTTPRejectsInvalidInputsAndCrossWorkspaceAssignme
 		{"viewer", `{"name":"Denied","initialization":"empty","project_id":null}`, f.viewer, uuid.NewString(), 403},
 		{"outsider", `{"name":"Denied","initialization":"empty","project_id":null}`, f.outsider, uuid.NewString(), 404},
 		{"foreign project", `{"name":"Denied","initialization":"empty","project_id":"` + project.ID() + `"}`, f.owner, uuid.NewString(), 400},
-		{"import", `{"name":"Denied","initialization":"import","project_id":null}`, f.owner, uuid.NewString(), 422},
+		{"unsupported initialization", `{"name":"Denied","initialization":"unknown","project_id":null}`, f.owner, uuid.NewString(), 422},
 		{"unknown field", `{"name":"Denied","initialization":"empty","created_by":"fake"}`, f.owner, uuid.NewString(), 400},
 		{"missing project field", `{"name":"Denied","initialization":"empty"}`, f.owner, uuid.NewString(), 400},
 		{"missing key", `{"name":"Denied","initialization":"empty","project_id":null}`, f.owner, "", 400},

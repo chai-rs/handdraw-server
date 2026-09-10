@@ -35,8 +35,13 @@ func (s *Service) Create(ctx context.Context, board string, p comment.Create) (c
 	if err != nil {
 		return comment.Thread{}, err
 	}
-	// Anchor validation only needs structural projection; registered assets are resolved by the content admission workflow.
-	snapshot, err := s.codec.Decode(state, document.Validation{BoardID: board})
+
+	scope, err := s.repository.Scope(ctx, board)
+	if err != nil {
+		return comment.Thread{}, err
+	}
+
+	snapshot, err := s.codec.Decode(state, scope)
 	if err != nil {
 		return comment.Thread{}, err
 	}

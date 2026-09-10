@@ -42,7 +42,7 @@ func (s *Service) Get(ctx context.Context, id string) (model.BoardView, error) {
 
 	v, err := s.query.SchemaVersion(ctx, id)
 
-	return model.BoardView{Board: b, SchemaVersion: v, Capabilities: d.Capabilities}, err
+	return model.BoardView{Board: b, SchemaVersion: v, Capabilities: d.Capabilities, CanInsertPremium: d.CanInsertPremium}, err
 }
 
 // Create binds the generated board ID to a validated initial document before persisting either.
@@ -82,12 +82,20 @@ func (s *Service) Create(ctx context.Context, w, key string, p model.CreateBoard
 		project = *p.ProjectID
 	}
 
-	b, err := board.NewBoard(board.NewBoardParams{WorkspaceID: w, CreatedBy: actor, Name: p.Name, ProjectID: project, Status: board.StatusActive})
+	status := board.StatusActive
+
+	mode := p.Initialization
+	if mode == "import" {
+		status = board.StatusInitializing
+		mode = "empty"
+	}
+
+	b, err := board.NewBoard(board.NewBoardParams{WorkspaceID: w, CreatedBy: actor, Name: p.Name, ProjectID: project, Status: status})
 	if err != nil {
 		return model.BoardView{}, err
 	}
 
-	initial, err := s.builder.Build(b.ID(), p.Initialization)
+	initial, err := s.builder.Build(b.ID(), mode)
 	if err != nil {
 		return model.BoardView{}, err
 	}
@@ -280,8 +288,12 @@ func (s *Service) Delete(ctx context.Context, id string, revision int64) (job.De
 		return existing, nil
 	}
 
-	d, err := s.access.Require(ctx, access.Target{BoardID: id}, access.EditContent)
+	d, err := s.access.Require(ctx, access.Target{BoardID: id}, access.ReadMetadata)
 	if err != nil {
+		return job.Deletion{}, err
+	}
+
+	if _, err = s.access.Require(ctx, access.Target{WorkspaceID: d.Facts.Workspace.ID}, access.EditContent); err != nil {
 		return job.Deletion{}, err
 	}
 

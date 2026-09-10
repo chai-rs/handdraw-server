@@ -117,6 +117,7 @@ func CheckRequestPool(ctx context.Context, db *bun.DB) error {
  AND NOT pg_has_role(current_user,'handdraw_quota_worker','MEMBER')
  AND NOT pg_has_role(current_user,'handdraw_idempotency_gc','MEMBER')
  AND NOT pg_has_role(current_user,'handdraw_cleanup_worker','MEMBER')
+ AND NOT pg_has_role(current_user,'handdraw_transfer_worker','MEMBER')
  AND NOT has_function_privilege(current_user,'handdraw.resolve_profile(text,uuid,text)','EXECUTE')
  AND NOT has_schema_privilege(current_user,'handdraw','CREATE')
  FROM pg_roles WHERE rolname=current_user`).Scan(ctx, &allowed)
