@@ -31,3 +31,7 @@ for runtime flags, restricted roles and browser CORS configuration.
 See [T04 setup and local browser acceptance](../docs/server/onboarding-board-api.md). `make local-cloud` starts a disposable local integration fixture; `APP_BOARD_ENABLED` controls product board routes and `APP_CLEANUP_ENABLED` additionally mounts deletion. Runtime schema is now version 9.
 
 [T05 membership/invitations](../docs/server/membership-invitations.md) adds Owner-guarded member changes, atomic invitation seat reservation/acceptance and board Viewer grants under `APP_MEMBERSHIP_ENABLED`. Email delivery remains explicitly pending integration; the API returns no bearer invitation tokens.
+
+### Durable collaboration
+
+T06 adds the optional Fiber WebSocket route `/v1/collaboration`, backed by ygo, actor RLS and PostgreSQL CAS. Enable `APP_COLLABORATION_ENABLED` with explicit `APP_COLLABORATION_ORIGINS` and identity/workspace/board routes. A pinned direct/session-pooled database connection owns the single beta runtime; transaction pooling is unsupported. See [the collaboration contract](../docs/server/durable-collaboration.md). `make check-all` includes real five-peer Yjs, restart, lost-ACK and database-fault tests using the adjacent client checkout.

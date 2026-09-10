@@ -12,8 +12,12 @@ import (
 	boardapi "github.com/chai-rs/handdraw-server/app/board_management/inbound/api"
 	boardquery "github.com/chai-rs/handdraw-server/app/board_management/infra/db"
 	boardworkflow "github.com/chai-rs/handdraw-server/app/board_management/service"
+	collabdb "github.com/chai-rs/handdraw-server/app/collaboration/infra/db"
+	collabservice "github.com/chai-rs/handdraw-server/app/collaboration/service"
 	boarddb "github.com/chai-rs/handdraw-server/internal/board/infra/db"
 	boardservice "github.com/chai-rs/handdraw-server/internal/board/service"
+	collabws "github.com/chai-rs/handdraw-server/internal/collaboration/inbound/ws"
+	controlcodec "github.com/chai-rs/handdraw-server/internal/collaboration/infra/protocol"
 	documentcodec "github.com/chai-rs/handdraw-server/internal/document/infra/ygo"
 	documentservice "github.com/chai-rs/handdraw-server/internal/document/service"
 	jobdb "github.com/chai-rs/handdraw-server/internal/job/infra/db"
@@ -46,13 +50,14 @@ import (
 )
 
 type configuration struct {
-	HTTP       fx.Config
-	Log        logx.Config
-	Identity   identityConfig
-	Workspace  workspaceConfig
-	Board      boardConfig
-	Cleanup    cleanupConfig
-	Membership membershipConfig
+	HTTP          fx.Config
+	Log           logx.Config
+	Identity      identityConfig
+	Workspace     workspaceConfig
+	Board         boardConfig
+	Cleanup       cleanupConfig
+	Membership    membershipConfig
+	Collaboration collaborationConfig
 }
 
 func main() {
@@ -87,6 +92,11 @@ type membershipConfig struct {
 	TokenKey string `split_words:"true" json:"-"`
 }
 
+type collaborationConfig struct {
+	Enabled bool     `default:"false"`
+	Origins []string `split_words:"true"`
+}
+
 type boardConfig struct {
 	Enabled bool `default:"false"`
 }
@@ -102,6 +112,10 @@ type workspaceConfig struct {
 }
 
 func run(ctx context.Context, config configuration) error {
+	if config.Collaboration.Enabled && !config.Board.Enabled {
+		return errors.New("collaboration requires board routes")
+	}
+
 	if config.Membership.Enabled && !config.Board.Enabled {
 		return errors.New("membership routes require board routes")
 	}
@@ -134,11 +148,12 @@ func run(ctx context.Context, config configuration) error {
 	}
 
 	var (
-		boardHandler      *boardapi.Handler
-		membershipHandler *membershipapi.Handler
-		workspaceHandler  *workspaceapi.Handler
-		handler           *identityapi.Handler
-		checks            []fx.Check
+		collaborationHandler *collabws.Server
+		boardHandler         *boardapi.Handler
+		membershipHandler    *membershipapi.Handler
+		workspaceHandler     *workspaceapi.Handler
+		handler              *identityapi.Handler
+		checks               []fx.Check
 	)
 
 	if config.Identity.Enabled {
@@ -223,6 +238,27 @@ func run(ctx context.Context, config configuration) error {
 					defer func() { cancel(); <-done }()
 				}
 
+				if config.Collaboration.Enabled {
+					authority, err := collabdb.Acquire(ctx, requestDB)
+					if err != nil {
+						return err
+					}
+					defer func() {
+						closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+
+						_ = authority.Close(closeCtx)
+					}()
+
+					collaborationHandler, err = collabws.New(collabservice.New(identity, authority, access, collabdb.NewDocuments(), documentcodec.Codec{}), controlcodec.Codec{}, collabws.Config{Origins: config.Collaboration.Origins})
+					if err != nil {
+						return err
+					}
+					defer collaborationHandler.Close()
+
+					checks = append(checks, fx.NewCheck("collaboration_authority", authority.Check))
+				}
+
 				boards := boardworkflow.New(boardservice.NewBoardService(boarddb.NewBoardRepository()), boardservice.NewProjectService(boarddb.NewProjectRepository()), documentservice.NewInitialBuilder(documentcodec.Codec{}), access, boardquery.New(), idemdb.New(), jobdb.New())
 
 				boardHandler = boardapi.New(session, boards, cursors, config.Cleanup.Enabled)
@@ -244,6 +280,10 @@ func run(ctx context.Context, config configuration) error {
 	}
 
 	server, err := fx.New(fx.Params{Config: config.HTTP, ReadinessChecks: checks, Routes: func(router fiber.Router) {
+		if collaborationHandler != nil {
+			collaborationHandler.Register(router.Group("/v1"))
+		}
+
 		if handler != nil {
 			handler.Register(router.Group("/v1"))
 		}

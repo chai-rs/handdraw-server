@@ -9,14 +9,32 @@ jobs:
   server:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: handdraw-server
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: handdraw-server
+      - uses: actions/checkout@v4
+        with:
+          repository: chai-rs/handdraw-client
+          ref: ${{ vars.HANDDRAW_CLIENT_REF || 'main' }}
+          token: ${{ secrets.HANDDRAW_CLIENT_READ_TOKEN || github.token }}
+          path: handdraw-client
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: handdraw-client/package-lock.json
+      - run: npm ci
+        working-directory: handdraw-client
       - uses: actions/setup-go@v5
         with:
           go-version: '1.27.0'
           cache: true
+          cache-dependency-path: handdraw-server/go.sum
       - name: Install pinned migration and lint tools
         run: |
           go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1

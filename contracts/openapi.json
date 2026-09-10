@@ -3,7 +3,7 @@
   "info": {
     "title": "Handdraw API",
     "version": "1.0.0",
-    "description": "Handdraw API contract. Identity, workspace onboarding and project/board routes are wired behind explicit configuration. Board deletion additionally requires the cleanup worker. Team membership, invitations and board Viewer grants require the membership feature flag. Invitation email delivery remains pending integration. Bearer identity is verified before profile resolution. Unknown fields/trailing JSON are rejected. Future domain endpoints are added with their implementation contracts."
+    "description": "Handdraw API contract. Identity, workspace onboarding and project/board routes are wired behind explicit configuration. Board deletion additionally requires the cleanup worker. Team membership, invitations and board Viewer grants require the membership feature flag. Invitation email delivery remains pending integration. Bearer identity is verified before profile resolution. Unknown fields/trailing JSON are rejected. Durable collaboration uses an explicitly enabled WebSocket route with in-band authentication and protocol-1 negotiation. Future domain endpoints are added with their implementation contracts."
   },
   "servers": [
     {
@@ -44,6 +44,10 @@
     {
       "name": "Guests",
       "description": "Board-scoped Viewer access."
+    },
+    {
+      "name": "Collaboration",
+      "description": "Online Yjs synchronization and durable save checkpoints."
     }
   ],
   "paths": {
@@ -2168,6 +2172,43 @@
         ],
         "x-implementation-status": "available-when-enabled",
         "description": "Available with APP_MEMBERSHIP_ENABLED, board/workspace/identity enabled and schema version 9. Available when the corresponding runtime feature is enabled. Owner removes the board grant and returns any remaining workspace membership."
+      }
+    },
+    "/v1/collaboration": {
+      "get": {
+        "tags": [
+          "Collaboration"
+        ],
+        "operationId": "connectCollaboration",
+        "summary": "Open an online collaboration session",
+        "security": [],
+        "description": "WebSocket upgrade, enabled by APP_COLLABORATION_ENABLED with board/workspace/identity enabled and explicit APP_COLLABORATION_ORIGINS. Requires a direct or session-pooled PostgreSQL connection. Supabase token is sent in-band, never in the URL. Hocuspocus binary framing: authenticate → protocol-1 client-hello (schema 1) → session-ready → Yjs sync. Five sockets per board and 25 per process; one database-locked runtime. Viewer can read and send presence; Owner/Editor can mutate subject to current entitlement. saved acknowledges a save-checkpoint only after PostgreSQL commit. Disconnect/idle/revocation freezes the client; reopen with a fresh Y.Doc and no offline replay. Cloud idle 7200 seconds, Team 14400, warning 300; heartbeat is not activity. Scalar Try It does not implement this binary protocol. See contracts/control-v1.json and docs/server/durable-collaboration.md.",
+        "parameters": [
+          {
+            "name": "room",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^board:brd_[0-9A-Za-z]{27}$"
+            },
+            "description": "One canonical board room per socket."
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Switching Protocols; authentication and schema negotiation still required before content disclosure."
+          },
+          "400": {
+            "description": "Invalid room identifier."
+          },
+          "403": {
+            "description": "Origin is not allowed."
+          },
+          "426": {
+            "description": "A WebSocket upgrade is required."
+          }
+        }
       }
     }
   },

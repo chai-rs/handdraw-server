@@ -29,6 +29,15 @@ type (
 // Run opens the workflow transaction after the caller has verified the user's identity.
 // Errors, cancellation and panics roll back. A nested workflow must reuse the existing context.
 func Run(ctx context.Context, db *bun.DB, actor string, fn func(context.Context) error) error {
+	return run(ctx, db.RunInTx, actor, fn)
+}
+
+// RunOnConnection keeps actor isolation on a pinned authority connection without pool fallback.
+func RunOnConnection(ctx context.Context, conn bun.Conn, actor string, fn func(context.Context) error) error {
+	return run(ctx, conn.RunInTx, actor, fn)
+}
+
+func run(ctx context.Context, transact func(context.Context, *sql.TxOptions, func(context.Context, bun.Tx) error) error, actor string, fn func(context.Context) error) error {
 	if err := resourceid.Validate(actor, "usr"); err != nil {
 		return err
 	}
@@ -37,7 +46,7 @@ func Run(ctx context.Context, db *bun.DB, actor string, fn func(context.Context)
 		return ErrNestedTransaction
 	}
 
-	return db.RunInTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(ctx context.Context, tx bun.Tx) error {
+	return transact(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.ExecContext(ctx, "SELECT set_config('handdraw.user_id', ?, true)", actor); err != nil {
 			return err
 		}

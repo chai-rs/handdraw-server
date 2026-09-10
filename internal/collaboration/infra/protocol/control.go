@@ -125,3 +125,18 @@ func Encode(room string, control model.Control, fromClient bool) ([]byte, error)
 func validRoom(room string) bool {
 	return strings.HasPrefix(room, "board:") && resourceid.Validate(strings.TrimPrefix(room, "board:"), model.BoardIDPrefix) == nil
 }
+
+// Codec adapts the strict protocol functions to the collaboration transport port.
+type Codec struct{}
+
+// Decode rejects unsupported and wrong-direction application controls.
+func (Codec) Decode(room string, frame []byte, fromClient bool) (model.Control, error) {
+	return Decode(room, frame, fromClient)
+}
+
+// Encode validates application controls before transport framing.
+func (Codec) Encode(room string, control model.Control, fromClient bool) ([]byte, error) {
+	return Encode(room, control, fromClient)
+}
+
+var _ model.Controls = Codec{}

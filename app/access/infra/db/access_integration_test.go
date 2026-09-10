@@ -20,10 +20,14 @@ import (
 	boardquery "github.com/chai-rs/handdraw-server/app/board_management/infra/db"
 	boardinput "github.com/chai-rs/handdraw-server/app/board_management/model"
 	boardworkflow "github.com/chai-rs/handdraw-server/app/board_management/service"
+	collabdb "github.com/chai-rs/handdraw-server/app/collaboration/infra/db"
+	collabservice "github.com/chai-rs/handdraw-server/app/collaboration/service"
 	membershipapi "github.com/chai-rs/handdraw-server/app/membership/inbound/api"
 	membershipdb "github.com/chai-rs/handdraw-server/app/membership/infra/db"
 	membershipservice "github.com/chai-rs/handdraw-server/app/membership/service"
 	boardservice "github.com/chai-rs/handdraw-server/internal/board/service"
+	collabws "github.com/chai-rs/handdraw-server/internal/collaboration/inbound/ws"
+	controlcodec "github.com/chai-rs/handdraw-server/internal/collaboration/infra/protocol"
 	jobdb "github.com/chai-rs/handdraw-server/internal/job/infra/db"
 
 	_ "embed"
@@ -373,7 +377,22 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 	if len(accounts) > 0 {
 		httpConfig.CORS = fx.CORSConfig{Enabled: true, AllowOrigins: []string{"http://127.0.0.1:5175"}}
 	}
+	var collaboration *collabws.Server
+	if len(accounts) > 0 {
+		authority, err := collabdb.Acquire(t.Context(), s.request)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			require.NoError(t, authority.Close(ctx))
+		})
+		collaboration, err = collabws.New(collabservice.New(identityService, authority, policy, collabdb.NewDocuments(), documentcodec.Codec{}), controlcodec.Codec{}, collabws.Config{Origins: []string{"http://127.0.0.1:5175"}})
+		require.NoError(t, err)
+	}
 	server, err := fx.New(fx.Params{Config: httpConfig, Routes: func(router fiber.Router) {
+		if collaboration != nil {
+			collaboration.Register(router.Group("/v1"))
+		}
 		handler.Register(router.Group("/v1"))
 		tokens, err := membershipservice.NewTokens([]byte(strings.Repeat("membership-local-key-", 3)))
 		require.NoError(t, err)
@@ -386,6 +405,9 @@ func (s *accessSuite) http(t *testing.T, accounts ...map[string]user) (string, f
 	done := make(chan error, 1)
 	go func() { done <- server.Run(ctx) }()
 	t.Cleanup(func() {
+		if collaboration != nil {
+			collaboration.Close()
+		}
 		cancel()
 		select {
 		case err := <-done:
