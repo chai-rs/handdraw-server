@@ -97,6 +97,9 @@ func errorHandler(c fiber.Ctx, err error) error {
 	})
 }
 
+// ErrorHandler renders the shared public error envelope for adapters and black-box tests.
+func ErrorHandler(c fiber.Ctx, err error) error { return errorHandler(c, err) }
+
 func statusErrorCode(status int) string {
 	switch status {
 	case http.StatusBadRequest:
