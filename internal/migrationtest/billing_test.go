@@ -36,3 +36,22 @@ func (s *migrationSuite) TestPolarCheckoutMigrationReplays() {
 	run(t, f.dir, f.dsn, "up")
 	require.NoError(t, bunx.CheckSchema(t.Context(), f.request, 14))
 }
+
+// TestPolarLifecycleMigrationReplays keeps webhook and settlement functions outside request credentials.
+func (s *migrationSuite) TestPolarLifecycleMigrationReplays() {
+	t := s.T()
+	f := s.foundationVersion(16)
+	require.NoError(t, bunx.CheckSchema(t.Context(), f.request, 16))
+	for _, q := range []string{
+		"SELECT handdraw.accept_polar_webhook('evt','subscription.active',clock_timestamp(),'{}'::jsonb)",
+		"SELECT handdraw.polar_portal_customer('ws_x')",
+		"SELECT handdraw.apply_polar_billing('x','x','{}'::jsonb)",
+	} {
+		_, err := f.request.ExecContext(t.Context(), q)
+		require.Error(t, err)
+	}
+	run(t, f.dir, f.dsn, "down", "2")
+	require.NoError(t, bunx.CheckSchema(t.Context(), f.request, 14))
+	run(t, f.dir, f.dsn, "up")
+	require.NoError(t, bunx.CheckSchema(t.Context(), f.request, 16))
+}

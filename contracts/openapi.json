@@ -3,7 +3,7 @@
   "info": {
     "title": "Handdraw API",
     "version": "1.0.0",
-    "description": "Handdraw API contract. Identity, workspace onboarding and project/board routes are wired behind explicit configuration. Board deletion additionally requires the cleanup worker. Team membership, invitations and board Viewer grants require the membership feature flag. Invitation email delivery remains pending integration. Bearer identity is verified before profile resolution. Unknown fields/trailing JSON are rejected. Durable collaboration uses an explicitly enabled WebSocket route with in-band authentication and protocol-1 negotiation. Future domain endpoints are added with their implementation contracts."
+    "description": "Handdraw API contract. Identity, workspace onboarding and project/board routes are wired behind explicit configuration. Board deletion additionally requires the cleanup worker. Team membership, invitations and board Viewer grants require the membership feature flag. Invitation email delivery remains pending integration. Bearer identity is verified before profile resolution. Unknown fields/trailing JSON are rejected. Durable collaboration uses an explicitly enabled WebSocket route with in-band authentication and protocol-1 negotiation. Future domain endpoints are added with their implementation contracts. Polar billing uses hosted checkout and signed durable webhooks."
   },
   "servers": [
     {
@@ -67,7 +67,7 @@
     },
     {
       "name": "Billing",
-      "description": "Local deterministic billing, reviewed plan/seat changes and payment history. Live Polar payments and portal are disabled."
+      "description": "Polar hosted checkout, subscription lifecycle, customer portal and verified payment history."
     }
   ],
   "paths": {
@@ -3307,7 +3307,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "200": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3353,7 +3353,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "200": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3407,7 +3407,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "200": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3456,7 +3456,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "200": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3515,7 +3515,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "200": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3571,7 +3571,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "202": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3627,7 +3627,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "202": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3686,7 +3686,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "202": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3745,7 +3745,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "202": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3802,7 +3802,7 @@
           }
         ],
         "x-implementation-status": "local-adapter-only",
-        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local, identity/workspace/board/Garage/cleanup and schema 13. Owner-only except member entitlement reads. No live checkout URL, public settlement endpoint or actual charge. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
+        "description": "Requires APP_BILLING_ENABLED, APP_BILLING_PROVIDER=local or polar, identity/workspace/board/Garage/cleanup and schema 16. Owner-only except member entitlement reads. Polar mode creates hosted checkout sessions and applies only provider-verified subscription, order and refund snapshots. Quotes expire after 10 minutes. Confirm uses quote_id and intent_revision; Team to Cloud requires confirm_member_changes and a fresh exact access snapshot. Replacement checkout additionally uses plan_change_id, intent_revision and confirmation after Team end. Seat decreases include explicit demote_user_ids/revoke_invitation_ids and apply at the paid period boundary. Unsupported billing cycle changes return 409. History returns the latest 100 orders and refunds.",
         "responses": {
           "202": {
             "description": "Success; an accepted intention alone grants no entitlement.",
@@ -3843,6 +3843,104 @@
             }
           }
         }
+      }
+    },
+    "/v1/workspaces/{workspace_id}/billing/portal-sessions": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "operationId": "createBillingPortalSession",
+        "summary": "Create billing portal session",
+        "description": "Owner-only. Creates a short-lived Polar customer portal URL for payment method, invoices and cancellation management.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/workspace_id"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Portal session created.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingPortalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 0,
+        "x-implementation-status": "available-when-enabled"
+      }
+    },
+    "/v1/webhooks/polar": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "operationId": "receivePolarWebhook",
+        "summary": "Receive Polar webhook",
+        "security": [],
+        "description": "Public provider callback. Verifies Standard Webhooks headers against the exact body and durably deduplicates the delivery before acknowledging it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Authenticated event durably accepted."
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "x-max-request-bytes": 262144,
+        "x-implementation-status": "available-when-enabled"
       }
     }
   },
@@ -6223,6 +6321,43 @@
           },
           "result": {
             "$ref": "#/components/schemas/BillingHistory"
+          }
+        },
+        "required": [
+          "success",
+          "meta",
+          "result"
+        ]
+      },
+      "BillingPortal": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "portal_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          }
+        },
+        "required": [
+          "portal_url"
+        ]
+      },
+      "BillingPortalResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "result": {
+            "$ref": "#/components/schemas/BillingPortal"
           }
         },
         "required": [

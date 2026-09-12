@@ -104,7 +104,7 @@ func (r *Repository) Lease(ctx context.Context, token string) (model.Task, error
 
 // Apply commits history and the guarded current entitlement together.
 func (r *Repository) Apply(ctx context.Context, t model.Task, p model.Snapshot) error {
-	if p.Provider == "polar" {
+	if p.Provider == "polar" && p.SubscriptionID == "" {
 		_, err := r.worker.ExecContext(ctx, "SELECT handdraw.apply_polar_checkout(?,?,?,?)", t.ID, t.Token, p.CheckoutID, p.CheckoutURL)
 
 		return mapped(err)
@@ -115,7 +115,11 @@ func (r *Repository) Apply(ctx context.Context, t model.Task, p model.Snapshot) 
 		return err
 	}
 
-	_, err = r.worker.ExecContext(ctx, "SELECT handdraw.apply_billing(?,?,?::jsonb)", t.ID, t.Token, string(raw))
+	if p.Provider == "polar" {
+		_, err = r.worker.ExecContext(ctx, "SELECT handdraw.apply_polar_billing(?,?,?::jsonb)", t.ID, t.Token, string(raw))
+	} else {
+		_, err = r.worker.ExecContext(ctx, "SELECT handdraw.apply_billing(?,?,?::jsonb)", t.ID, t.Token, string(raw))
+	}
 
 	return mapped(err)
 }
@@ -124,4 +128,18 @@ func (r *Repository) Apply(ctx context.Context, t model.Task, p model.Snapshot) 
 func (r *Repository) Maintain(ctx context.Context) error {
 	_, err := r.worker.ExecContext(ctx, "SELECT handdraw.billing_maintenance()")
 	return mapped(err)
+}
+
+// PortalCustomer resolves a provider customer only after the request transaction proves current ownership.
+func (*Repository) PortalCustomer(ctx context.Context, workspaceID string) (string, error) {
+	tx, err := rlstx.Current(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	var customerID string
+
+	err = tx.NewRaw("SELECT handdraw.polar_portal_customer(?)", workspaceID).Scan(ctx, &customerID)
+
+	return customerID, mapped(err)
 }

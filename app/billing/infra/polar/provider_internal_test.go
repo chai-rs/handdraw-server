@@ -22,7 +22,7 @@ const (
 
 func validConfig(baseURL string) Config {
 	return Config{
-		BaseURL: baseURL, AccessToken: "polar_oat_test", SuccessURL: "https://handdraw.dev/app/cloud?checkout_id={CHECKOUT_ID}",
+		BaseURL: baseURL, AccessToken: "polar_oat_test", WebhookSecret: "polar_webhook_test", SuccessURL: "https://handdraw.dev/app/cloud?checkout_id={CHECKOUT_ID}",
 		ReturnURL: "https://handdraw.dev/app/cloud", CloudMonthlyProduct: testCloudMonth,
 		CloudYearlyProduct: testCloudYear, TeamMonthlyProduct: testTeamMonth, TeamYearlyProduct: testTeamYear,
 		Timeout: time.Second,

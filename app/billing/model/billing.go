@@ -127,6 +127,13 @@ type Task struct {
 type Snapshot struct {
 	Provider            string     `json:"provider,omitempty"`
 	Version             int64      `json:"version"`
+	IntentID            string     `json:"intent_id,omitempty"`
+	WorkspaceID         string     `json:"workspace_id,omitempty"`
+	CustomerID          string     `json:"customer_id,omitempty"`
+	ProductID           string     `json:"product_id,omitempty"`
+	Plan                string     `json:"plan,omitempty"`
+	BillingInterval     string     `json:"billing_interval,omitempty"`
+	Seats               int        `json:"seats,omitempty"`
 	SubscriptionID      string     `json:"subscription_id"`
 	CheckoutID          string     `json:"checkout_id,omitempty"`
 	CheckoutURL         string     `json:"checkout_url,omitempty"`
@@ -166,7 +173,11 @@ func (p Snapshot) Validate() error {
 		return ErrInvalid
 	}
 
-	if p.Provider == "polar" && (p.CheckoutID == "" || p.CheckoutURL == "") {
+	if p.Provider == "polar" && p.Status == "pending" && p.SubscriptionID == "" && (p.CheckoutID == "" || p.CheckoutURL == "") {
+		return ErrInvalid
+	}
+
+	if p.Provider == "polar" && p.SubscriptionID != "" && (p.IntentID == "" || p.WorkspaceID == "" || p.CustomerID == "" || p.ProductID == "" || p.Seats < 1 || p.BillingInterval != "month" && p.BillingInterval != "year" || p.Plan != "cloud" && p.Plan != "team") {
 		return ErrInvalid
 	}
 

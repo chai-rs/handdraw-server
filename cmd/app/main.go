@@ -234,6 +234,7 @@ func run(ctx context.Context, config configuration) error {
 		collaborationHandler *collabws.Server
 		boardHandler         *boardapi.Handler
 		billingHandler       *billingapi.Handler
+		billingWebhook       *billingapi.PolarWebhook
 		transferHandler      *transferapi.Handler
 		assetHandler         *assetapi.Handler
 		discussionHandler    *discussionapi.Handler
@@ -256,7 +257,7 @@ func run(ctx context.Context, config configuration) error {
 
 		defer func() { _ = db.Close() }()
 
-		if err := bunx.CheckSchema(ctx, db, 14); err != nil {
+		if err := bunx.CheckSchema(ctx, db, 16); err != nil {
 			return err
 		}
 
@@ -276,7 +277,7 @@ func run(ctx context.Context, config configuration) error {
 			defer localHandler.Close()
 		}
 
-		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 14) })}
+		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 16) })}
 
 		if config.Workspace.Enabled {
 			cursors, err := cursor.New([]byte(config.Workspace.CursorKey))
@@ -295,7 +296,7 @@ func run(ctx context.Context, config configuration) error {
 				return err
 			}
 
-			if err = bunx.CheckSchema(ctx, requestDB, 14); err != nil {
+			if err = bunx.CheckSchema(ctx, requestDB, 16); err != nil {
 				return err
 			}
 
@@ -317,7 +318,7 @@ func run(ctx context.Context, config configuration) error {
 						return err
 					}
 
-					if err = bunx.CheckSchema(ctx, cleanupDB, 14); err != nil {
+					if err = bunx.CheckSchema(ctx, cleanupDB, 16); err != nil {
 						return err
 					}
 
@@ -382,7 +383,7 @@ func run(ctx context.Context, config configuration) error {
 						return err
 					}
 
-					if err = bunx.CheckSchema(ctx, billingDB, 14); err != nil {
+					if err = bunx.CheckSchema(ctx, billingDB, 16); err != nil {
 						return err
 					}
 
@@ -395,10 +396,20 @@ func run(ctx context.Context, config configuration) error {
 					case "local":
 						provider = billinglocal.New(billingDB)
 					case "polar":
-						provider, err = billingpolar.New(billingDB, nil, config.Billing.Polar)
-						if err != nil {
-							return err
+						polarProvider, providerErr := billingpolar.New(billingDB, nil, config.Billing.Polar)
+						if providerErr != nil {
+							return providerErr
 						}
+
+						provider = polarProvider
+
+						decoder, decoderErr := billingpolar.NewWebhook(config.Billing.Polar.WebhookSecret)
+						if decoderErr != nil {
+							return decoderErr
+						}
+
+						billingWebhook = billingapi.NewPolarWebhook(decoder, billingdb.NewPolarWebhookQueue(billingDB))
+						billingHandler = billingapi.New(session, billingservice.New(billingdb.New(nil), nil)).WithPortal(billingservice.NewPortal(billingdb.New(nil), polarProvider))
 					}
 
 					billingDone := make(chan struct{})
@@ -410,7 +421,9 @@ func run(ctx context.Context, config configuration) error {
 
 					defer func() { billingCancel(); <-billingDone }()
 
-					billingHandler = billingapi.New(session, billingservice.New(billingdb.New(nil), nil))
+					if billingHandler == nil {
+						billingHandler = billingapi.New(session, billingservice.New(billingdb.New(nil), nil))
+					}
 				}
 
 				if config.Transfer.Enabled {
@@ -455,7 +468,7 @@ func run(ctx context.Context, config configuration) error {
 			}
 
 			checks = append(checks, fx.NewCheck("workspace_store", func(ctx context.Context) error {
-				if err := bunx.CheckSchema(ctx, requestDB, 14); err != nil {
+				if err := bunx.CheckSchema(ctx, requestDB, 16); err != nil {
 					return err
 				}
 
@@ -483,6 +496,10 @@ func run(ctx context.Context, config configuration) error {
 
 		if billingHandler != nil {
 			billingHandler.Register(router.Group("/v1"))
+		}
+
+		if billingWebhook != nil {
+			billingWebhook.Register(router.Group("/v1"))
 		}
 
 		if transferHandler != nil {

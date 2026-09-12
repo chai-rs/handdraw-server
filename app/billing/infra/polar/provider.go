@@ -28,6 +28,7 @@ type Config struct {
 	AccessToken         string        `split_words:"true" json:"-"`
 	SuccessURL          string        `split_words:"true"`
 	ReturnURL           string        `split_words:"true"`
+	WebhookSecret       string        `split_words:"true" json:"-"`
 	CloudMonthlyProduct string        `split_words:"true"`
 	CloudYearlyProduct  string        `split_words:"true"`
 	TeamMonthlyProduct  string        `split_words:"true"`
@@ -37,7 +38,7 @@ type Config struct {
 
 // Validate rejects incomplete catalogs and redirect URLs outside HTTP(S).
 func (c Config) Validate() error {
-	if c.AccessToken == "" || c.Timeout <= 0 {
+	if c.AccessToken == "" || c.WebhookSecret == "" || c.Timeout <= 0 {
 		return model.ErrInvalid
 	}
 
@@ -59,13 +60,19 @@ func (c Config) Validate() error {
 }
 
 type operation struct {
-	WorkspaceID     string `json:"workspace_id"`
-	Kind            string `json:"kind"`
-	Plan            string `json:"plan"`
-	BillingInterval string `json:"billing_interval"`
-	Seats           int    `json:"seats"`
-	CheckoutID      string `json:"checkout_id"`
-	CheckoutURL     string `json:"checkout_url"`
+	ID                   string `json:"id"`
+	WorkspaceID          string `json:"workspace_id"`
+	Kind                 string `json:"kind"`
+	Status               string `json:"status"`
+	Phase                string `json:"phase"`
+	Plan                 string `json:"plan"`
+	BillingInterval      string `json:"billing_interval"`
+	Seats                int    `json:"seats"`
+	SourceSeats          int    `json:"source_seats"`
+	SourceSubscriptionID string `json:"source_subscription_id"`
+	SubscriptionID       string `json:"subscription_id"`
+	CheckoutID           string `json:"checkout_id"`
+	CheckoutURL          string `json:"checkout_url"`
 }
 
 type checkoutRequest struct {
@@ -120,14 +127,43 @@ func (p *Provider) Observe(ctx context.Context, id string) (model.Snapshot, erro
 		return model.Snapshot{}, err
 	}
 
+	op.ID = id
+	if op.Status == "requested" && (op.Kind == "cancel" || op.Kind == "resume" || op.Kind == "seat_change" || op.Kind == "plan_downgrade" && op.Phase != "checkout_ready") {
+		subscription, mutationErr := p.mutateSubscription(ctx, op)
+		if mutationErr != nil {
+			return model.Snapshot{}, mutationErr
+		}
+
+		return p.snapshot(ctx, op, subscription)
+	}
+
+	if op.SubscriptionID != "" {
+		subscription, subscriptionErr := p.subscription(ctx, op.SubscriptionID)
+		if subscriptionErr != nil {
+			return model.Snapshot{}, subscriptionErr
+		}
+
+		if op.Kind == "plan_upgrade" && op.SourceSubscriptionID != "" && op.SourceSubscriptionID != subscription.ID && subscription.Status == "active" {
+			if mutationErr := p.cancelAtPeriodEnd(ctx, op.SourceSubscriptionID); mutationErr != nil {
+				return model.Snapshot{}, mutationErr
+			}
+		}
+
+		return p.snapshot(ctx, op, subscription)
+	}
+
 	if op.CheckoutID != "" {
 		return pending(op.CheckoutID, op.CheckoutURL), nil
 	}
 
-	if op.Kind != "checkout" {
+	if op.Kind != "checkout" && op.Kind != "plan_upgrade" && !(op.Kind == "plan_downgrade" && op.Phase == "checkout_ready") {
 		return model.Snapshot{}, model.ErrConflict
 	}
 
+	return p.checkout(ctx, id, op)
+}
+
+func (p *Provider) checkout(ctx context.Context, id string, op operation) (model.Snapshot, error) {
 	product, err := p.product(op.Plan, op.BillingInterval)
 	if err != nil {
 		return model.Snapshot{}, err
@@ -135,7 +171,7 @@ func (p *Provider) Observe(ctx context.Context, id string) (model.Snapshot, erro
 
 	body := checkoutRequest{
 		Products:           []string{product},
-		AllowTrial:         op.Plan != "team" || op.Seats <= maxTrialSeats,
+		AllowTrial:         op.Kind == "checkout" && (op.Plan != "team" || op.Seats <= maxTrialSeats),
 		ExternalCustomerID: op.WorkspaceID,
 		Metadata: metadata{
 			IntentID: id, WorkspaceID: op.WorkspaceID, Plan: op.Plan,
