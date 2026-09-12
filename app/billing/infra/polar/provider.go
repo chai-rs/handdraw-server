@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	checkoutPath  = "/v1/checkouts"
+	checkoutPath  = "/v1/checkouts/"
 	maxTrialSeats = 5
 )
 
