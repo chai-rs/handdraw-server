@@ -125,8 +125,11 @@ type Task struct {
 
 // Snapshot is a provider-verified billing observation. Requests cannot supply it.
 type Snapshot struct {
+	Provider            string     `json:"provider,omitempty"`
 	Version             int64      `json:"version"`
 	SubscriptionID      string     `json:"subscription_id"`
+	CheckoutID          string     `json:"checkout_id,omitempty"`
+	CheckoutURL         string     `json:"checkout_url,omitempty"`
 	Status              string     `json:"status"`
 	CardVerified        bool       `json:"card_verified"`
 	TrialEndsAt         *time.Time `json:"trial_ends_at,omitempty"`
@@ -159,7 +162,11 @@ type Refund struct {
 
 // Validate bounds the fixture control surface and requires canonical financial identifiers.
 func (p Snapshot) Validate() error {
-	if p.Version < 1 || len(p.SubscriptionID) > 200 || valx.Var(p.Status, valx.In("pending", "trialing", "active", "renewal_failed", "ended", "failed")) != nil || len(p.Orders) > 100 || len(p.Refunds) > 100 {
+	if p.Version < 1 || len(p.SubscriptionID) > 200 || len(p.CheckoutID) > 200 || len(p.CheckoutURL) > 2083 || p.Provider != "" && valx.Var(p.Provider, valx.In("local", "polar")) != nil || valx.Var(p.Status, valx.In("pending", "trialing", "active", "renewal_failed", "ended", "failed")) != nil || len(p.Orders) > 100 || len(p.Refunds) > 100 {
+		return ErrInvalid
+	}
+
+	if p.Provider == "polar" && (p.CheckoutID == "" || p.CheckoutURL == "") {
 		return ErrInvalid
 	}
 

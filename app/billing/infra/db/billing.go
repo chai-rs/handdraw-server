@@ -104,6 +104,12 @@ func (r *Repository) Lease(ctx context.Context, token string) (model.Task, error
 
 // Apply commits history and the guarded current entitlement together.
 func (r *Repository) Apply(ctx context.Context, t model.Task, p model.Snapshot) error {
+	if p.Provider == "polar" {
+		_, err := r.worker.ExecContext(ctx, "SELECT handdraw.apply_polar_checkout(?,?,?,?)", t.ID, t.Token, p.CheckoutID, p.CheckoutURL)
+
+		return mapped(err)
+	}
+
 	raw, err := json.Marshal(p)
 	if err != nil {
 		return err

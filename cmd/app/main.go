@@ -12,6 +12,8 @@ import (
 	billingapi "github.com/chai-rs/handdraw-server/app/billing/inbound/api"
 	billingdb "github.com/chai-rs/handdraw-server/app/billing/infra/db"
 	billinglocal "github.com/chai-rs/handdraw-server/app/billing/infra/local"
+	billingpolar "github.com/chai-rs/handdraw-server/app/billing/infra/polar"
+	billingmodel "github.com/chai-rs/handdraw-server/app/billing/model"
 	billingservice "github.com/chai-rs/handdraw-server/app/billing/service"
 	localapi "github.com/chai-rs/handdraw-server/app/local_sharing/inbound/api"
 	localservice "github.com/chai-rs/handdraw-server/app/local_sharing/service"
@@ -84,7 +86,8 @@ type configuration struct {
 type billingConfig struct {
 	Enabled     bool
 	DatabaseURL string `split_words:"true"`
-	Provider    string
+	Provider    string `default:"local"`
+	Polar       billingpolar.Config
 }
 
 func main() {
@@ -158,8 +161,12 @@ func run(ctx context.Context, config configuration) error {
 		return errors.New("Local sharing requires identity verification")
 	}
 
-	if config.Billing.Enabled && (!config.Board.Enabled || !config.Cleanup.Enabled || !config.Asset.Enabled || config.Billing.Provider != "local") {
-		return errors.New("local billing requires board, Garage assets and cleanup")
+	if config.Billing.Enabled && (!config.Board.Enabled || !config.Cleanup.Enabled || !config.Asset.Enabled) {
+		return errors.New("billing requires board, Garage assets and cleanup")
+	}
+
+	if config.Billing.Enabled && config.Billing.Provider != "local" && config.Billing.Provider != "polar" {
+		return errors.New("billing provider must be local or polar")
 	}
 
 	if config.Transfer.Enabled && !config.Asset.Enabled {
@@ -249,7 +256,7 @@ func run(ctx context.Context, config configuration) error {
 
 		defer func() { _ = db.Close() }()
 
-		if err := bunx.CheckSchema(ctx, db, 13); err != nil {
+		if err := bunx.CheckSchema(ctx, db, 14); err != nil {
 			return err
 		}
 
@@ -269,7 +276,7 @@ func run(ctx context.Context, config configuration) error {
 			defer localHandler.Close()
 		}
 
-		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 13) })}
+		checks = []fx.Check{fx.NewCheck("identity_store", profiles.Check), fx.NewCheck("database_schema", func(ctx context.Context) error { return bunx.CheckSchema(ctx, db, 14) })}
 
 		if config.Workspace.Enabled {
 			cursors, err := cursor.New([]byte(config.Workspace.CursorKey))
@@ -288,7 +295,7 @@ func run(ctx context.Context, config configuration) error {
 				return err
 			}
 
-			if err = bunx.CheckSchema(ctx, requestDB, 13); err != nil {
+			if err = bunx.CheckSchema(ctx, requestDB, 14); err != nil {
 				return err
 			}
 
@@ -310,7 +317,7 @@ func run(ctx context.Context, config configuration) error {
 						return err
 					}
 
-					if err = bunx.CheckSchema(ctx, cleanupDB, 13); err != nil {
+					if err = bunx.CheckSchema(ctx, cleanupDB, 14); err != nil {
 						return err
 					}
 
@@ -375,18 +382,30 @@ func run(ctx context.Context, config configuration) error {
 						return err
 					}
 
-					if err = bunx.CheckSchema(ctx, billingDB, 13); err != nil {
+					if err = bunx.CheckSchema(ctx, billingDB, 14); err != nil {
 						return err
 					}
 
 					checks = append(checks, fx.NewCheck("billing_store", repo.Check))
 					billingCtx, billingCancel := context.WithCancel(ctx)
 
+					var provider billingmodel.Provider
+
+					switch config.Billing.Provider {
+					case "local":
+						provider = billinglocal.New(billingDB)
+					case "polar":
+						provider, err = billingpolar.New(billingDB, nil, config.Billing.Polar)
+						if err != nil {
+							return err
+						}
+					}
+
 					billingDone := make(chan struct{})
 					go func() {
 						defer close(billingDone)
 
-						jobservice.NewWorker(billingservice.New(repo, billinglocal.New(billingDB))).Run(billingCtx, func(err error) { logx.Error().Msg("billing pass failed") })
+						jobservice.NewWorker(billingservice.New(repo, provider)).Run(billingCtx, func(err error) { logx.Error().Msg("billing pass failed") })
 					}()
 
 					defer func() { billingCancel(); <-billingDone }()
@@ -436,7 +455,7 @@ func run(ctx context.Context, config configuration) error {
 			}
 
 			checks = append(checks, fx.NewCheck("workspace_store", func(ctx context.Context) error {
-				if err := bunx.CheckSchema(ctx, requestDB, 13); err != nil {
+				if err := bunx.CheckSchema(ctx, requestDB, 14); err != nil {
 					return err
 				}
 
