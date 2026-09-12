@@ -6093,31 +6093,24 @@
           "provider": {
             "type": "string",
             "enum": [
-              "local"
+              "local",
+              "polar"
             ]
           },
           "checkout_url": {
             "type": "string",
-            "nullable": true,
-            "enum": [
-              null
-            ]
+            "format": "uri",
+            "nullable": true
           },
           "capabilities": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "live_payment": {
-                "type": "boolean",
-                "enum": [
-                  false
-                ]
+                "type": "boolean"
               },
               "portal": {
-                "type": "boolean",
-                "enum": [
-                  false
-                ]
+                "type": "boolean"
               }
             },
             "required": [
